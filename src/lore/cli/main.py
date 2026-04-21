@@ -22,6 +22,9 @@ from lore.graph import (
     open_db,
     query,
 )
+from lore.graph import (
+    stats as _stats,
+)
 
 DEFAULT_DB = Path(".lore") / "lore.db"
 
@@ -167,6 +170,58 @@ def mcp(db: DBOption = DEFAULT_DB) -> None:
     from lore.mcp.server import run
 
     run(db)
+
+
+def _format_bytes(n: int) -> str:
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024:
+            return f"{n:.1f} {unit}" if unit != "B" else f"{n} {unit}"
+        n = n / 1024  # type: ignore[assignment]
+    return f"{n:.1f} TB"
+
+
+@app.command()
+def stats(
+    db: DBOption = DEFAULT_DB,
+    since: Annotated[
+        str | None,
+        typer.Option(
+            "--since",
+            help="ISO timestamp — only count calls at or after this time.",
+        ),
+    ] = None,
+) -> None:
+    """Show token/byte usage analytics for this project's Lore MCP.
+
+    Reports total calls, bytes exchanged, per-tool breakdown, and error
+    rate. Token count is not directly measurable from the MCP server, so
+    `bytes_exchanged` is the honest proxy — multiply by ~0.3 for a rough
+    token estimate."""
+    conn = open_db(db)
+    data = _stats(conn, since=since)
+    if data["calls"] == 0:
+        scope = f" since {since}" if since else ""
+        typer.echo(f"(no tool calls recorded{scope})")
+        return
+
+    typer.echo(f"-- Lore usage ({data['first_call_at']} → {data['last_call_at']}) --")
+    typer.echo(f"  calls:   {data['calls']}")
+    typer.echo(f"  errors:  {data['errors']}")
+    typer.echo(f"  input:   {_format_bytes(data['input_bytes'])}")
+    typer.echo(f"  output:  {_format_bytes(data['output_bytes'])}")
+    typer.echo(f"  total:   {_format_bytes(data['total_bytes'])}")
+
+    typer.echo("\n-- by tool --")
+    for row in data["by_tool"]:
+        total = row["input_bytes"] + row["output_bytes"]
+        typer.echo(
+            f"  {row['tool']:<24} {row['calls']:>5} calls  "
+            f"{_format_bytes(total):>10}"
+        )
+
+    typer.echo("\n-- by op --")
+    for row in data["by_op"]:
+        typer.echo(f"  {row['op']:<16} {row['calls']:>5}")
 
 
 if __name__ == "__main__":

@@ -1,14 +1,17 @@
 """Lore MCP server — exposes the graph tools to LLM clients over stdio.
 
-Each tool is a thin wrapper around `lore.graph`, sharing a single connection
-for the lifetime of the process.
+Every tool call is recorded in the `audit_log` table with byte counts so the
+user can later answer "how much did Lore cost me on this project?" via
+`lore stats` (see CLI).
 """
 
 from __future__ import annotations
 
+import json
 import sqlite3
+from functools import wraps
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from mcp.server.fastmcp import FastMCP
 
@@ -17,7 +20,13 @@ from lore.graph import (
     add_edge as _add_edge,
 )
 from lore.graph import (
+    add_edges_batch as _add_edges_batch,
+)
+from lore.graph import (
     add_node as _add_node,
+)
+from lore.graph import (
+    add_nodes_batch as _add_nodes_batch,
 )
 from lore.graph import (
     audit as _audit,
@@ -38,6 +47,9 @@ from lore.graph import (
     list_nodes as _list_nodes,
 )
 from lore.graph import (
+    log_call as _log_call,
+)
+from lore.graph import (
     open_db,
 )
 from lore.graph import (
@@ -47,11 +59,58 @@ from lore.graph import (
     remove_edge as _remove_edge,
 )
 from lore.graph import (
+    stats as _stats,
+)
+from lore.graph import (
     traverse as _traverse,
 )
 from lore.graph import (
     update_node as _update_node,
 )
+
+
+def _bytes(value: Any) -> int:
+    """Approximate serialized size of a value in bytes (UTF-8 JSON)."""
+    if value is None:
+        return 0
+    try:
+        return len(json.dumps(value, default=str).encode("utf-8"))
+    except (TypeError, ValueError):
+        return len(str(value).encode("utf-8"))
+
+
+def _instrumented(
+    conn: sqlite3.Connection, tool_name: str, op: str
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator that wraps a tool handler to log input/output sizes."""
+
+    def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(fn)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            in_bytes = _bytes(kwargs) + _bytes(list(args))
+            node_id = kwargs.get("id") or kwargs.get("from_id")
+            error: str | None = None
+            result: Any = None
+            try:
+                result = fn(*args, **kwargs)
+                return result
+            except Exception as exc:
+                error = f"{type(exc).__name__}: {exc}"
+                raise
+            finally:
+                _log_call(
+                    conn,
+                    tool=tool_name,
+                    op=op,
+                    node_id=node_id if isinstance(node_id, str) else None,
+                    input_bytes=in_bytes,
+                    output_bytes=_bytes(result),
+                    error=error,
+                )
+
+        return wrapper
+
+    return decorator
 
 
 def build_server(db_path: str | Path) -> FastMCP:
@@ -60,6 +119,7 @@ def build_server(db_path: str | Path) -> FastMCP:
     mcp = FastMCP("lore")
 
     @mcp.tool()
+    @_instrumented(conn, "lore_add_node", "create")
     def lore_add_node(
         id: str,
         type: str,
@@ -69,7 +129,13 @@ def build_server(db_path: str | Path) -> FastMCP:
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Create a new node. Type must be one of: module, capability, flow,
-        event, rule, form, entity, decision."""
+        event, rule, form, entity, decision.
+
+        Write content (title, body) in the same natural language the user uses
+        in conversation. Populate `metadata.source` with one of
+        `user_stated | user_confirmed | inferred_from_code |
+        inferred_from_conversation` and `metadata.confidence`
+        (`high | medium | low`) so the graph stays auditable."""
         return _add_node(
             conn,
             node_id=id,
@@ -81,6 +147,15 @@ def build_server(db_path: str | Path) -> FastMCP:
         )
 
     @mcp.tool()
+    @_instrumented(conn, "lore_add_nodes", "batch_create")
+    def lore_add_nodes(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Batch-create nodes in a single transaction. Each item needs
+        `id`, `type`, `title`; optional `body`, `status`, `metadata`.
+        Fails atomically if any entry is invalid."""
+        return _add_nodes_batch(conn, nodes)
+
+    @mcp.tool()
+    @_instrumented(conn, "lore_update_node", "update")
     def lore_update_node(
         id: str,
         title: str | None = None,
@@ -88,8 +163,9 @@ def build_server(db_path: str | Path) -> FastMCP:
         status: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Update fields on an existing node. Pass only the fields you want
-        changed. Passing metadata replaces the entire metadata dict."""
+        """Update fields on an existing node. Pass only fields that changed.
+        Passing `metadata` replaces the entire metadata dict — preserve
+        provenance keys (`source`, `confidence`) when updating."""
         return _update_node(
             conn,
             id,
@@ -100,11 +176,13 @@ def build_server(db_path: str | Path) -> FastMCP:
         )
 
     @mcp.tool()
+    @_instrumented(conn, "lore_delete_node", "delete")
     def lore_delete_node(id: str) -> dict[str, bool]:
         """Delete a node and all its edges."""
         return {"deleted": _delete_node(conn, id)}
 
     @mcp.tool()
+    @_instrumented(conn, "lore_get_node", "read")
     def lore_get_node(id: str, include_edges: bool = True) -> dict[str, Any]:
         """Fetch a node by id, optionally with its direct edges."""
         node = _get_node(conn, id)
@@ -117,6 +195,7 @@ def build_server(db_path: str | Path) -> FastMCP:
         return result
 
     @mcp.tool()
+    @_instrumented(conn, "lore_add_edge", "create")
     def lore_add_edge(
         from_id: str,
         to_id: str,
@@ -124,7 +203,10 @@ def build_server(db_path: str | Path) -> FastMCP:
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Create an edge between two existing nodes. The relation must be
-        valid for the node types (see PRD §4.4)."""
+        valid for the node types. Common pairs: `part_of` (flow/capability/
+        form/event → module), `implements` (flow → capability), `depends_on`
+        (module/flow → module/flow), `triggers` (flow/event → event/flow),
+        `validates` (form → rule), `enforces` (rule → entity)."""
         return _add_edge(
             conn,
             from_id=from_id,
@@ -134,6 +216,14 @@ def build_server(db_path: str | Path) -> FastMCP:
         )
 
     @mcp.tool()
+    @_instrumented(conn, "lore_add_edges", "batch_create")
+    def lore_add_edges(edges: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Batch-create edges in a single transaction. Each item needs
+        `from_id`, `to_id`, `relation`; optional `metadata`."""
+        return _add_edges_batch(conn, edges)
+
+    @mcp.tool()
+    @_instrumented(conn, "lore_remove_edge", "delete")
     def lore_remove_edge(
         from_id: str, to_id: str, relation: str
     ) -> dict[str, bool]:
@@ -145,12 +235,15 @@ def build_server(db_path: str | Path) -> FastMCP:
         }
 
     @mcp.tool()
+    @_instrumented(conn, "lore_query", "read")
     def lore_query(text_or_id: str, depth: int = 1) -> dict[str, Any]:
         """Flexible search. Tries exact id, then title substring, then tag.
-        Returns matched nodes plus their neighborhood up to `depth`."""
+        `text_or_id` is required. Returns matched nodes plus neighborhood up
+        to `depth`."""
         return _query(conn, text_or_id, depth=depth)
 
     @mcp.tool()
+    @_instrumented(conn, "lore_traverse", "read")
     def lore_traverse(
         from_id: str,
         relations: list[str] | None = None,
@@ -163,26 +256,48 @@ def build_server(db_path: str | Path) -> FastMCP:
         )
 
     @mcp.tool()
+    @_instrumented(conn, "lore_find_variants", "read")
     def lore_find_variants(capability_id: str) -> list[dict[str, Any]]:
         """List all flows that implement the given capability — answers
         'how many ways of doing X?'."""
         return _find_variants(conn, capability_id)
 
     @mcp.tool()
+    @_instrumented(conn, "lore_list", "read")
     def lore_list(
         type: str | None = None,
         status: str | None = None,
         tag: str | None = None,
+        include_body: bool = False,
     ) -> list[dict[str, Any]]:
-        """List nodes, optionally filtered by type, status or tag."""
-        return _list_nodes(conn, type=type, status=status, tag=tag)
+        """List nodes, optionally filtered by type, status or tag. Returns
+        id/type/title/status only by default (cheap for large graphs). Pass
+        `include_body=True` for full nodes when you actually need them."""
+        return _list_nodes(
+            conn,
+            type=type,
+            status=status,
+            tag=tag,
+            summary_only=not include_body,
+        )
 
     @mcp.tool()
+    @_instrumented(conn, "lore_audit", "audit")
     def lore_audit() -> dict[str, Any]:
         """Run structural checks: orphans, dangling edges, id hygiene, cycles."""
         return _audit(conn)
 
     @mcp.tool()
+    @_instrumented(conn, "lore_stats", "read")
+    def lore_stats(since: str | None = None) -> dict[str, Any]:
+        """Analytics from the append-only audit log. `since` is an optional
+        ISO timestamp to scope the report. Returns total calls, bytes
+        exchanged, per-tool and per-op breakdowns, and the first/last call
+        timestamps."""
+        return _stats(conn, since=since)
+
+    @mcp.tool()
+    @_instrumented(conn, "lore_export_markdown", "export")
     def lore_export_markdown(out_dir: str) -> dict[str, Any]:
         """Export the graph as one markdown file per node."""
         written = _export_markdown(conn, out_dir)

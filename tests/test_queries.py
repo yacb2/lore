@@ -19,6 +19,15 @@ def test_list_nodes_by_type(seeded_conn):
     assert ids == {"payment-by-transfer", "payment-by-tpv"}
 
 
+def test_list_nodes_summary_only_drops_body(seeded_conn):
+    flows = list_nodes(seeded_conn, type="flow", summary_only=True)
+    assert flows, "seed has flows"
+    for n in flows:
+        assert set(n.keys()) == {"id", "type", "title", "status"}
+        assert "body" not in n
+        assert "metadata" not in n
+
+
 def test_list_nodes_by_status(seeded_conn):
     actives = list_nodes(seeded_conn, status="active")
     assert len(actives) >= 1

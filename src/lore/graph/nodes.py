@@ -110,3 +110,47 @@ def get_node(conn: sqlite3.Connection, node_id: str) -> dict[str, Any] | None:
     """Fetch a node by id. Returns None if not found."""
     row = conn.execute("SELECT * FROM nodes WHERE id = ?", (node_id,)).fetchone()
     return row_to_dict(row) if row else None
+
+
+def add_nodes_batch(
+    conn: sqlite3.Connection, specs: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Insert many nodes in one transaction. Each spec must have keys
+    `id`, `type`, `title`; optional: `body`, `status`, `metadata`.
+
+    Fails atomically: if any spec is invalid, none are inserted."""
+    prepared: list[tuple[Any, ...]] = []
+    now = now_iso()
+    for s in specs:
+        node_id = s["id"]
+        node_type = s["type"]
+        title = s["title"]
+        validate_id(node_id)
+        validate_node_type(node_type)
+        status = s.get("status", "active")
+        validate_status(status)
+        if not title or not title.strip():
+            raise SchemaError(f"title is required for node {node_id!r}")
+        meta = s.get("metadata")
+        prepared.append(
+            (
+                node_id,
+                node_type,
+                title,
+                s.get("body"),
+                status,
+                json.dumps(meta) if meta else None,
+                now,
+                now,
+            )
+        )
+    conn.executemany(
+        """
+        INSERT INTO nodes (id, type, title, body, status, metadata_json,
+                           created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        prepared,
+    )
+    conn.commit()
+    return [get_node(conn, s["id"]) for s in specs]  # type: ignore[misc]

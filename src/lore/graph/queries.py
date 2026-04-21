@@ -19,8 +19,13 @@ def list_nodes(
     type: str | None = None,
     status: str | None = None,
     tag: str | None = None,
+    summary_only: bool = False,
 ) -> list[dict[str, Any]]:
-    """List nodes filtered by type, status, and/or a tag in metadata.tags."""
+    """List nodes filtered by type, status, and/or a tag in metadata.tags.
+
+    When `summary_only=True`, returns only id/type/title/status (drops body
+    and metadata). Use this to cheaply scan large graphs; follow up with
+    `get_node` for full detail."""
     clauses: list[str] = []
     values: list[Any] = []
     if type is not None:
@@ -30,12 +35,24 @@ def list_nodes(
         clauses.append("status = ?")
         values.append(status)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+    if summary_only and tag is None:
+        rows = conn.execute(
+            f"SELECT id, type, title, status FROM nodes {where} ORDER BY type, id",
+            values,
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     rows = conn.execute(
         f"SELECT * FROM nodes {where} ORDER BY type, id", values
     ).fetchall()
     nodes = [row_to_dict(r) for r in rows]
     if tag is not None:
         nodes = [n for n in nodes if tag in n.get("metadata", {}).get("tags", [])]
+    if summary_only:
+        nodes = [
+            {k: n[k] for k in ("id", "type", "title", "status")} for n in nodes
+        ]
     return nodes
 
 

@@ -111,6 +111,7 @@ def test_expected_plugin_files_present() -> None:
         COMMANDS_DIR / "show.md",
         COMMANDS_DIR / "recent.md",
         COMMANDS_DIR / "impact.md",
+        COMMANDS_DIR / "bootstrap.md",
     ]
     missing = [str(p.relative_to(REPO_ROOT)) for p in expected if not p.exists()]
     assert not missing, f"plugin files missing: {missing}"

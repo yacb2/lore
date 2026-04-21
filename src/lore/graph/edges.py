@@ -65,6 +65,50 @@ def remove_edge(
     return cur.rowcount > 0
 
 
+def add_edges_batch(
+    conn: sqlite3.Connection, specs: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Insert many edges in one transaction. Each spec needs `from_id`,
+    `to_id`, `relation`; optional `metadata`. Validates types per-spec and
+    fails atomically."""
+    prepared: list[tuple[Any, ...]] = []
+    now = now_iso()
+    results: list[dict[str, Any]] = []
+    for s in specs:
+        from_id = s["from_id"]
+        to_id = s["to_id"]
+        relation = s["relation"]
+        from_node = get_node(conn, from_id)
+        if from_node is None:
+            raise SchemaError(f"Source node {from_id!r} not found")
+        to_node = get_node(conn, to_id)
+        if to_node is None:
+            raise SchemaError(f"Target node {to_id!r} not found")
+        validate_edge_types(relation, from_node["type"], to_node["type"])
+        meta = s.get("metadata")
+        prepared.append(
+            (from_id, to_id, relation, json.dumps(meta) if meta else None, now)
+        )
+        results.append(
+            {
+                "from_id": from_id,
+                "to_id": to_id,
+                "relation": relation,
+                "metadata": meta or {},
+                "created_at": now,
+            }
+        )
+    conn.executemany(
+        """
+        INSERT INTO edges (from_id, to_id, relation, metadata_json, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        prepared,
+    )
+    conn.commit()
+    return results
+
+
 def list_edges(
     conn: sqlite3.Connection,
     *,
