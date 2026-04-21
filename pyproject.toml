@@ -5,7 +5,7 @@ description = "The living knowledge graph for your software project — a progra
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
-    { name = "Yoel Acevedo" },
+    { name = "YACB2" },
 ]
 requires-python = ">=3.11"
 keywords = ["knowledge-graph", "mcp", "llm", "ai", "developer-tools", "documentation"]
@@ -27,9 +27,9 @@ dependencies = [
 lore = "lore.cli.main:app"
 
 [project.urls]
-Homepage = "https://github.com/yoelacevedo/lore"
-Repository = "https://github.com/yoelacevedo/lore"
-Issues = "https://github.com/yoelacevedo/lore/issues"
+Homepage = "https://github.com/YACB2/lore"
+Repository = "https://github.com/YACB2/lore"
+Issues = "https://github.com/YACB2/lore/issues"
 
 [build-system]
 requires = ["hatchling"]

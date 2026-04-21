@@ -1,17 +1,22 @@
 {
   "name": "lore",
   "owner": {
-    "name": "Yoel Acevedo",
-    "url": "https://github.com/yoelacevedo"
+    "name": "YACB2"
+  },
+  "metadata": {
+    "description": "Lore — living knowledge graph for software projects",
+    "pluginRoot": "./plugins"
   },
   "plugins": [
     {
       "name": "lore",
-      "source": "./plugin",
-      "description": "Living knowledge graph for software projects — MCP server, auto-invoked skills, and slash commands for explicit graph operations.",
+      "source": "./lore",
+      "description": "MCP-backed knowledge graph plugin — auto-invoked skills, slash commands, and a stdio MCP server.",
       "version": "0.0.1",
+      "author": { "name": "YACB2" },
+      "homepage": "https://github.com/YACB2/lore",
+      "repository": "https://github.com/YACB2/lore",
       "license": "MIT",
-      "homepage": "https://github.com/yoelacevedo/lore",
       "keywords": ["knowledge-graph", "mcp", "documentation", "domain-model"]
     }
   ]

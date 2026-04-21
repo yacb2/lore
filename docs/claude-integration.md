@@ -3,9 +3,9 @@
 Lore ships in two pieces that work together:
 
 1. **`projectlore`** on PyPI — the MCP server binary and Python CLI.
-2. **The `lore` plugin** — a Claude Code plugin (this repository's `plugin/`
-   directory) that registers the MCP server, two skills and five slash
-   commands as a single installable unit.
+2. **The `lore` plugin** — a Claude Code plugin (this repository's
+   `plugins/lore/` directory) that registers the MCP server, two skills and
+   five slash commands as a single installable unit.
 
 Claude Code's plugin system is what makes the *automatic behavior* possible.
 An MCP server by itself can only expose tools — it cannot tell Claude *when*
@@ -26,14 +26,14 @@ pipx install projectlore
 Inside any project where you use Claude Code:
 
 ```
-/plugin marketplace add yoelacevedo/lore
+/plugin marketplace add YACB2/lore
 /plugin install lore@lore
 ```
 
 Claude Code will:
 
-- Register the `lore` MCP server from `plugin/.mcp.json` (auto-starts when
-  the plugin is enabled).
+- Register the `lore` MCP server from `plugins/lore/.mcp.json` (auto-starts
+  when the plugin is enabled).
 - Load the `lore-usage` skill (auto-invoked during conversation).
 - Load the `lore-commit` skill (user-invocable only, via `/lore:lore-commit`).
 - Register the five slash commands under `/lore:*`.
@@ -48,14 +48,14 @@ lore init          # creates .lore/lore.db in the current project
 
 | File | Purpose |
 |---|---|
-| `plugin/.mcp.json` | Declares the `lore` MCP server. Auto-started. |
-| `plugin/skills/lore-usage/SKILL.md` | **Auto-invoked.** Read-first, write-on-decision, contradiction-check. |
-| `plugin/skills/lore-commit/SKILL.md` | **User-invocable only.** Explicit bulk persist after a design discussion. |
-| `plugin/commands/lore/init.md` | `/lore:init` — bootstrap modules interactively. |
-| `plugin/commands/lore/audit.md` | `/lore:audit` — run structural checks. |
-| `plugin/commands/lore/show.md` | `/lore:show <id>` — full node detail. |
-| `plugin/commands/lore/recent.md` | `/lore:recent` — top 20 by updated_at. |
-| `plugin/commands/lore/impact.md` | `/lore:impact <id>` — blast-radius analysis. |
+| `plugins/lore/.mcp.json` | Declares the `lore` MCP server. Auto-started. |
+| `plugins/lore/skills/lore-usage/SKILL.md` | **Auto-invoked.** Read-first, write-on-decision, contradiction-check. |
+| `plugins/lore/skills/lore-commit/SKILL.md` | **User-invocable only.** Explicit bulk persist after a design discussion. |
+| `plugins/lore/commands/lore/init.md` | `/lore:init` — bootstrap modules interactively. |
+| `plugins/lore/commands/lore/audit.md` | `/lore:audit` — run structural checks. |
+| `plugins/lore/commands/lore/show.md` | `/lore:show <id>` — full node detail. |
+| `plugins/lore/commands/lore/recent.md` | `/lore:recent` — top 20 by updated_at. |
+| `plugins/lore/commands/lore/impact.md` | `/lore:impact <id>` — blast-radius analysis. |
 
 ## Updating / removing
 
@@ -86,7 +86,7 @@ hosts, register the MCP server using that host's config mechanism:
 
 Those hosts won't get the auto-invocation behavior — you'll need to prompt
 the assistant to read/write Lore explicitly, or paste the contents of
-`plugin/skills/lore-usage/SKILL.md` into that host's system-prompt equivalent.
+`plugins/lore/skills/lore-usage/SKILL.md` into that host's system-prompt equivalent.
 
 ## Sanity check
 

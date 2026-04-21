@@ -44,7 +44,7 @@ Lore ships as a **Claude Code plugin** that bundles the MCP server, two
 skills (one auto-invoked, one user-invocable) and five slash commands:
 
 ```
-/plugin marketplace add yoelacevedo/lore
+/plugin marketplace add YACB2/lore
 /plugin install lore@lore
 ```
 
