@@ -4,13 +4,12 @@
     "name": "YACB2"
   },
   "metadata": {
-    "description": "Lore — living knowledge graph for software projects",
-    "pluginRoot": "./plugins"
+    "description": "Lore — living knowledge graph for software projects"
   },
   "plugins": [
     {
       "name": "lore",
-      "source": "./lore",
+      "source": "./plugins/lore",
       "description": "MCP-backed knowledge graph plugin — auto-invoked skills, slash commands, and a stdio MCP server.",
       "version": "0.0.1",
       "author": { "name": "YACB2" },

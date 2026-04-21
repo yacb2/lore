@@ -75,9 +75,8 @@ def test_plugin_components_live_at_plugin_root_not_in_claude_plugin_dir() -> Non
 
 def test_plugin_source_path_resolves() -> None:
     data = json.loads(MARKETPLACE.read_text())
-    plugin_root = data.get("metadata", {}).get("pluginRoot", "./")
     source = data["plugins"][0]["source"]
-    resolved = (REPO_ROOT / plugin_root / source).resolve()
+    resolved = (REPO_ROOT / source).resolve()
     assert resolved == PLUGIN_DIR.resolve(), (
         f"marketplace source resolves to {resolved}, expected {PLUGIN_DIR}"
     )

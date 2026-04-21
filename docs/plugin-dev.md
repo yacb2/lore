@@ -33,9 +33,11 @@ Two rules that are easy to get wrong:
 - **Components live at the plugin root**, not inside `.claude-plugin/`. Only
   `plugin.json` goes in `.claude-plugin/`. `skills/`, `commands/`, `.mcp.json`
   sit next to it.
-- **Marketplace `source` is relative to `metadata.pluginRoot`**, which in turn
-  is relative to the repo root. We use `pluginRoot: "./plugins"` and each
-  plugin has `source: "./<name>"`.
+- **Marketplace `source` is relative to the repo root** (the directory
+  containing `.claude-plugin/marketplace.json`). We use
+  `source: "./plugins/lore"`. `metadata.pluginRoot` is documented in some
+  references but is **not** honored by the installer as of the current
+  Claude Code version — always use an explicit full path in `source`.
 
 `tests/test_plugin_structure.py` enforces both rules in CI.
 
