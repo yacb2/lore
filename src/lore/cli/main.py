@@ -169,32 +169,5 @@ def mcp(db: DBOption = DEFAULT_DB) -> None:
     run(db)
 
 
-@app.command(name="install-claude")
-def install_claude(
-    target: Annotated[
-        Path,
-        typer.Option(
-            "--target",
-            help="Root directory where .claude/ should live (defaults to CWD).",
-        ),
-    ] = Path("."),
-    force: Annotated[
-        bool,
-        typer.Option("--force", help="Overwrite existing command/skill files."),
-    ] = False,
-) -> None:
-    """Install Lore slash commands, skill, and CLAUDE.md snippet into a project.
-
-    Copies templates into `<target>/.claude/commands/lore/`,
-    `<target>/.claude/skills/`, and appends the integration snippet to
-    `<target>/CLAUDE.md` (creating it if missing).
-    """
-    from lore.templates import install
-
-    report = install(target, force=force)
-    for line in report:
-        typer.echo(line)
-
-
 if __name__ == "__main__":
     app()

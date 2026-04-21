@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "lore": {
+      "command": "uvx",
+      "args": ["projectlore", "mcp", "--db", ".lore/lore.db"]
+    }
+  }
+}

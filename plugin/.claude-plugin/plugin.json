@@ -1,0 +1,7 @@
+{
+  "name": "lore",
+  "version": "0.0.1",
+  "description": "Living knowledge graph for software projects — bundles the Lore MCP server, auto-invoked read/write skills, and slash commands for explicit graph operations.",
+  "homepage": "https://github.com/yoelacevedo/lore",
+  "license": "MIT"
+}

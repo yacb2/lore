@@ -1,93 +1,105 @@
 # Claude Code integration
 
-Lore ships two things for Claude Code users:
+Lore ships in two pieces that work together:
 
-1. **The MCP server** — exposes graph tools (`lore_query`, `lore_add_node`, …)
-   that Claude can call during any conversation.
-2. **A distribution bundle** — slash commands, a skill, and a `CLAUDE.md`
-   snippet that teach Claude *when* to use those tools automatically.
+1. **`projectlore`** on PyPI — the MCP server binary and Python CLI.
+2. **The `lore` plugin** — a Claude Code plugin (this repository's `plugin/`
+   directory) that registers the MCP server, two skills and five slash
+   commands as a single installable unit.
 
-## One-shot install
+Claude Code's plugin system is what makes the *automatic behavior* possible.
+An MCP server by itself can only expose tools — it cannot tell Claude *when*
+to use them. The plugin adds skills and commands that are namespaced under
+the plugin and get loaded when the plugin is enabled.
 
-From the root of any project that uses Claude Code:
+## Install
+
+### 1. Install the MCP binary
 
 ```bash
-lore init                   # creates .lore/lore.db
-lore install-claude         # writes .claude/commands, .claude/skills, CLAUDE.md
+pipx install projectlore
+# or: uv tool install projectlore
 ```
 
-Then add the MCP server to your Claude Code config (`~/.claude/config.json`
-or the project-local equivalent):
+### 2. Add the marketplace and install the plugin
+
+Inside any project where you use Claude Code:
+
+```
+/plugin marketplace add yoelacevedo/lore
+/plugin install lore@lore
+```
+
+Claude Code will:
+
+- Register the `lore` MCP server from `plugin/.mcp.json` (auto-starts when
+  the plugin is enabled).
+- Load the `lore-usage` skill (auto-invoked during conversation).
+- Load the `lore-commit` skill (user-invocable only, via `/lore:lore-commit`).
+- Register the five slash commands under `/lore:*`.
+
+Then bootstrap the graph:
+
+```bash
+lore init          # creates .lore/lore.db in the current project
+```
+
+## What gets installed
+
+| File | Purpose |
+|---|---|
+| `plugin/.mcp.json` | Declares the `lore` MCP server. Auto-started. |
+| `plugin/skills/lore-usage/SKILL.md` | **Auto-invoked.** Read-first, write-on-decision, contradiction-check. |
+| `plugin/skills/lore-commit/SKILL.md` | **User-invocable only.** Explicit bulk persist after a design discussion. |
+| `plugin/commands/lore/init.md` | `/lore:init` — bootstrap modules interactively. |
+| `plugin/commands/lore/audit.md` | `/lore:audit` — run structural checks. |
+| `plugin/commands/lore/show.md` | `/lore:show <id>` — full node detail. |
+| `plugin/commands/lore/recent.md` | `/lore:recent` — top 20 by updated_at. |
+| `plugin/commands/lore/impact.md` | `/lore:impact <id>` — blast-radius analysis. |
+
+## Updating / removing
+
+```
+/plugin marketplace update lore
+/plugin uninstall lore@lore
+```
+
+Disabling the plugin stops the MCP server and hides the skills/commands
+atomically — no file cleanup needed.
+
+## Using Lore outside Claude Code
+
+The MCP server itself is host-agnostic (Cursor, Claude Desktop, any MCP
+client). The skills and slash commands are Claude-Code-specific. For other
+hosts, register the MCP server using that host's config mechanism:
 
 ```json
 {
   "mcpServers": {
     "lore": {
-      "command": "lore",
-      "args": ["mcp", "--db", ".lore/lore.db"]
+      "command": "uvx",
+      "args": ["projectlore", "mcp", "--db", ".lore/lore.db"]
     }
   }
 }
 ```
 
-Restart Claude Code. You should now see:
+Those hosts won't get the auto-invocation behavior — you'll need to prompt
+the assistant to read/write Lore explicitly, or paste the contents of
+`plugin/skills/lore-usage/SKILL.md` into that host's system-prompt equivalent.
 
-- 5 slash commands under `/lore-*`.
-- A `lore-capture` skill loaded automatically.
-- A Lore section inside `CLAUDE.md` that tells Claude to read the graph
-  before answering and to update it when architectural decisions are made.
-
-## What each file does
-
-### `CLAUDE.md` snippet
-
-Appended (or inlined between `<!-- BEGIN LORE INTEGRATION -->` markers) to
-your project's `CLAUDE.md`. Instructs Claude to:
-
-- Query the graph *before* answering questions that map to known nodes.
-- Update the graph *when* the conversation produces architectural decisions.
-- Flag contradictions rather than silently resolving them.
-
-Running `lore install-claude` a second time is a no-op unless you pass
-`--force`, which re-writes the snippet in place.
-
-### Slash commands (`.claude/commands/lore/`)
-
-| Command | Purpose |
-|---|---|
-| `/lore-init` | Bootstrap a new graph by asking the user for top-level modules. |
-| `/lore-audit` | Run `lore_audit()` and summarize findings. |
-| `/lore-show <id>` | Full detail of a node + incoming/outgoing edges. |
-| `/lore-recent` | 20 most recently updated nodes. |
-| `/lore-impact <id>` | Blast-radius analysis: what breaks if this node changes. |
-
-### Skill (`.claude/skills/lore-capture.md`)
-
-Auto-invoked during normal conversation. Guides Claude on *when* to read
-and *when* to write, so the graph stays fresh without explicit prompting.
-
-## Uninstall
-
-Delete `.claude/commands/lore/`, `.claude/skills/lore-capture.md`, and
-remove the block between `<!-- BEGIN LORE INTEGRATION -->` and
-`<!-- END LORE INTEGRATION -->` in `CLAUDE.md`. The MCP entry in Claude's
-config is independent and can be dropped separately.
-
-## Testing the integration
-
-A smoke check end-to-end:
+## Sanity check
 
 ```bash
+# The MCP server starts and waits on stdin:
+uvx projectlore mcp --db .lore/lore.db
+
+# The CLI works standalone:
 lore init
-lore install-claude
-# In Claude Code, ask: "/lore-init" and follow the prompts.
-# Then ask a plain question like: "what modules does this project have?"
-# Claude should call lore_list() automatically and cite module ids.
+lore list
+lore audit
 ```
 
-If Claude fails to invoke the MCP tools, verify:
-
-1. The `lore mcp` command works standalone: `lore mcp --db .lore/lore.db`
-   should start and wait on stdin.
-2. The MCP entry in Claude Code's config points to the correct `db` path.
-3. Claude Code has been restarted since the install.
+Inside Claude Code, a plain question like *"what modules does this project
+have?"* should cause the assistant to call `lore_list()` automatically —
+that's the `lore-usage` skill doing its job.

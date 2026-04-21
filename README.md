@@ -38,30 +38,32 @@ lore audit
 lore export --out .lore/export/
 ```
 
-## MCP integration (Claude Code)
+## Claude Code integration
 
-Two steps. First, add Lore to your Claude Code MCP config:
+Lore ships as a **Claude Code plugin** that bundles the MCP server, two
+skills (one auto-invoked, one user-invocable) and five slash commands:
+
+```
+/plugin marketplace add yoelacevedo/lore
+/plugin install lore@lore
+```
+
+The auto-invoked skill tells Claude to read the graph before answering
+business-logic questions and write to it when architectural decisions
+happen. See [`docs/claude-integration.md`](docs/claude-integration.md).
+
+For MCP-only hosts (Cursor, Claude Desktop):
 
 ```json
 {
   "mcpServers": {
     "lore": {
-      "command": "lore",
-      "args": ["mcp", "--db", ".lore/lore.db"]
+      "command": "uvx",
+      "args": ["projectlore", "mcp", "--db", ".lore/lore.db"]
     }
   }
 }
 ```
-
-Second, install the bundled slash commands, skill and `CLAUDE.md` snippet
-so Claude reads and updates the graph automatically during normal chat:
-
-```bash
-lore install-claude
-```
-
-See [`docs/claude-integration.md`](docs/claude-integration.md) for the full
-surface.
 
 ## Schema
 
