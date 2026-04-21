@@ -40,6 +40,8 @@ lore export --out .lore/export/
 
 ## MCP integration (Claude Code)
 
+Two steps. First, add Lore to your Claude Code MCP config:
+
 ```json
 {
   "mcpServers": {
@@ -50,6 +52,16 @@ lore export --out .lore/export/
   }
 }
 ```
+
+Second, install the bundled slash commands, skill and `CLAUDE.md` snippet
+so Claude reads and updates the graph automatically during normal chat:
+
+```bash
+lore install-claude
+```
+
+See [`docs/claude-integration.md`](docs/claude-integration.md) for the full
+surface.
 
 ## Schema
 
