@@ -77,12 +77,18 @@ hosts, register the MCP server using that host's config mechanism:
 {
   "mcpServers": {
     "lore": {
-      "command": "uvx",
-      "args": ["projectlore", "mcp", "--db", ".lore/lore.db"]
+      "command": "lore",
+      "args": ["mcp", "--db", ".lore/lore.db"]
     }
   }
 }
 ```
+
+This assumes you ran `uv tool install projectlore` (or `pipx install
+projectlore`) in step 1 so the `lore` binary is on your `$PATH`. When
+`projectlore` ships on PyPI, you can alternatively use `"command": "uvx"`
+with `"args": ["projectlore", "mcp", "--db", ".lore/lore.db"]` to skip the
+install step — but that only works after the package is public.
 
 Those hosts won't get the auto-invocation behavior — you'll need to prompt
 the assistant to read/write Lore explicitly, or paste the contents of
