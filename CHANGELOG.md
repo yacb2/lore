@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.6] — 2026-04-22
+
+### Fixed
+- Slash commands now resolve as `/lore:init`, `/lore:audit`, `/lore:probe`, etc. instead of the doubled-namespace `/lore:lore:init`. The command files lived in `plugins/lore/commands/lore/` which Claude Code interpreted as an extra namespace level. Flattened to `plugins/lore/commands/`.
+
 ## [0.0.5] — 2026-04-22
 
 ### Added

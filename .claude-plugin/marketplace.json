@@ -11,7 +11,7 @@
       "name": "lore",
       "source": "./plugins/lore",
       "description": "MCP-backed knowledge graph plugin — auto-invoked skills, slash commands, and a stdio MCP server.",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "author": { "name": "YACB2" },
       "homepage": "https://github.com/YACB2/lore",
       "repository": "https://github.com/YACB2/lore",
