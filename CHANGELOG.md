@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.13] — 2026-04-23
+
+### Changed
+- **`/lore:bootstrap` caps are now tiered by project size.** The old
+  hard cap (15 modules / 30 capabilities / 50 flows) was designed for
+  small-to-medium projects and silently truncated on larger codebases.
+  New tiers: small ≤5/15/25, medium 15/40/70, large 50/120/200. Caps
+  can still be exceeded if the codebase warrants it, with a
+  `truncated: true` flag + note in the proposal.
+- **Explicit multi-repo workspace guidance** in bootstrap prompt: one
+  module per sibling repo / independent package, even if that exceeds
+  a small-project cap. Cross-cutting concerns (auth, multi-tenancy,
+  observability) get their own module node; `rule` nodes are added in
+  a separate pass and explicitly NOT inferred during the initial
+  bootstrap scan (prevents rule inflation from speculative scanning).
+
 ## [0.0.12] — 2026-04-23
 
 ### Added

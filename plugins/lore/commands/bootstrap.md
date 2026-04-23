@@ -70,11 +70,28 @@ may be a single repo **or** a workspace containing several repos/packages
      "language": "<primary natural language of docs/comments, e.g. 'en' or 'es'>",
      "modules": [{"id": "module-<slug>", "title": "...", "path": "...", "repo": "<repo-path-if-workspace>"}],
      "capabilities": [{"id": "capability-<slug>", "title": "...", "module_id": "module-<slug>"}],
-     "flows": [{"id": "flow-<slug>", "title": "...", "module_id": "module-<slug>", "entry_point": "path:function"}]
+     "flows": [{"id": "flow-<slug>", "title": "...", "module_id": "module-<slug>", "entry_point": "path:function"}],
+     "truncated": false,
+     "truncated_note": null
    }
 
-   Keep it compact: max 15 modules, 30 capabilities, 50 flows. Prefer
-   precision over recall — skip anything ambiguous.
+   Caps (precision over recall — skip anything ambiguous):
+   - Small project (≤5 modules visible): 5–10 modules, 15 capabilities,
+     25 flows.
+   - Medium project (5–15 modules): 15 modules, 40 capabilities, 70 flows.
+   - Large project (15+ modules, multi-repo workspace): up to 50
+     modules, 120 capabilities, 200 flows. Do NOT force-fit a large
+     project into a small cap — better to cover real ground than to
+     arbitrarily truncate. If the codebase is substantially larger than
+     200 flows' worth, return the most prominent 200 plus a field
+     `truncated: true` with a short note on what was skipped.
+
+   In a multi-repo workspace, produce one `module` per sibling repo or
+   per independent package, even if that exceeds the small-project
+   cap. Cross-cutting concerns (auth, multi-tenancy, workspace
+   isolation, observability) deserve their own `module` plus, where
+   applicable, `rule` nodes — but rules are added in a separate pass,
+   do NOT infer them during this scan.
    ```
 
 3. **Show the proposal to the user** in a compact summary: count per type,
