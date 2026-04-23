@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.14] — 2026-04-23
+
+### Changed
+- **MCP server now relaxes `refuse-to-start` when `.lore/` exists.** The
+  v0.0.9 refuse protected against Claude Code launching from a parent
+  directory and silently writing the graph to the wrong place. But
+  refusing across the board created a poor first-run experience: a
+  brand-new Lore project shows "MCP failed" in the plugin UI with no
+  obvious next step, stderr hidden by Claude Code. The user has to run
+  `lore init` in a terminal and click Reconnect.
+
+  New behavior, which keeps the footgun guard and removes the friction:
+  - DB exists → open it. (same as before)
+  - DB missing but parent `.lore/` directory exists → auto-create the
+    DB inside it. Creating the `.lore/` folder is an explicit opt-in
+    to Lore for this project; auto-creating the DB there is safe.
+  - Neither DB nor `.lore/` parent exist → refuse with a clear error
+    message suggesting `mkdir .lore/` or `lore init`.
+
+  Observed during ns_backoffice_ws testing: the first-run refuse
+  behavior was the blocker.
+
 ## [0.0.13] — 2026-04-23
 
 ### Changed

@@ -12,14 +12,42 @@ from lore.mcp import build_server
 from lore.mcp.server import run as mcp_run
 
 
-def test_mcp_run_refuses_missing_db(tmp_path, capsys):
+def test_mcp_run_refuses_when_lore_dir_also_missing(tmp_path, capsys):
+    """No DB and no `.lore/` parent → refuse. Guards the footgun of
+    launching from a directory that was never meant to host Lore."""
     missing = tmp_path / "nope" / "lore.db"
+    assert not missing.parent.exists()
     with pytest.raises(SystemExit) as exc:
         mcp_run(missing)
     assert exc.value.code == 1
     assert not missing.exists(), "run() must not create the DB"
     err = capsys.readouterr().err
-    assert "no database at" in err
+    assert "no `.lore/` directory" in err
+
+
+def test_mcp_run_auto_creates_when_lore_dir_exists(tmp_path, capsys, monkeypatch):
+    """Parent `.lore/` exists but DB doesn't → auto-create and open.
+    The user opted into Lore by creating the folder."""
+    lore_dir = tmp_path / ".lore"
+    lore_dir.mkdir()
+    db = lore_dir / "lore.db"
+    assert not db.exists()
+
+    called = {}
+
+    def fake_mcp_run_method(self):
+        called["ran"] = True
+
+    # We don't want to actually start the stdio loop in a test; patch
+    # FastMCP.run so run() returns after building the server.
+    from mcp.server.fastmcp import FastMCP
+    monkeypatch.setattr(FastMCP, "run", fake_mcp_run_method)
+
+    mcp_run(db)
+    assert db.exists(), "DB must be auto-created when .lore/ parent exists"
+    assert called.get("ran") is True
+    err = capsys.readouterr().err
+    assert "auto-creating" in err
 
 
 @pytest.mark.anyio

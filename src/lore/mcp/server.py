@@ -336,19 +336,36 @@ def build_server(db_path: str | Path) -> FastMCP:
 def run(db_path: str | Path) -> None:
     """Run the MCP server over stdio.
 
-    Refuses to start if the database file does not exist. Prevents the
-    common footgun where Claude Code is launched from a parent directory
-    and the server silently creates a fresh `.lore/lore.db` at the wrong
-    location, diverging from the real project graph.
+    Behavior:
+      - If the DB file exists → open it. Happy path.
+      - If the parent `.lore/` directory exists but the DB doesn't →
+        create it. The user has clearly opted into Lore for this
+        project (the `.lore/` folder is an explicit signal); auto-
+        creating the DB there eliminates a "MCP failed, now run
+        `lore init`, now reconnect" ceremony with zero risk of
+        writing to the wrong place.
+      - If neither the DB nor its `.lore/` parent exist → refuse to
+        start. This is the footgun we are guarding against: Claude
+        Code launched from a parent directory (workspace root, home,
+        /tmp, …) that happens not to have Lore. Silent creation
+        there would diverge from the real graph.
     """
     resolved = Path(db_path).resolve()
     if not resolved.exists():
+        if not resolved.parent.exists():
+            sys.stderr.write(
+                f"Lore MCP: no database at {resolved} and no `.lore/` "
+                f"directory at {resolved.parent}. Create the directory "
+                f"(`mkdir -p {resolved.parent}`) or run `lore init --db "
+                f"{resolved}` to opt into Lore for this project. "
+                f"Refusing to auto-create at an unconfigured path to avoid "
+                f"writing the graph to the wrong directory.\n"
+            )
+            raise SystemExit(1)
         sys.stderr.write(
-            f"Lore MCP: no database at {resolved}. "
-            f"Run `lore init --db {resolved}` first, or launch Claude Code "
-            f"from the directory that contains `.lore/lore.db`.\n"
+            f"Lore MCP: {resolved} missing; auto-creating inside existing "
+            f"{resolved.parent}\n"
         )
-        raise SystemExit(1)
     sys.stderr.write(f"Lore MCP: using database at {resolved}\n")
     mcp = build_server(resolved)
     mcp.run()
