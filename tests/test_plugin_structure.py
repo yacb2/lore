@@ -131,6 +131,7 @@ def test_hooks_json_has_session_start() -> None:
     assert isinstance(session_start, list) and session_start
     inner = session_start[0].get("hooks", [])
     assert any(
-        h.get("type") == "command" and "lore reconcile" in h.get("command", "")
+        h.get("type") == "command"
+        and "lore hook-session-start" in h.get("command", "")
         for h in inner
-    ), "SessionStart must invoke `lore reconcile`"
+    ), "SessionStart must invoke `lore hook-session-start`"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -349,6 +349,96 @@ if ! command -v lore >/dev/null 2>&1; then
 fi
 lore reconcile --db "$DB" --since HEAD~1 --quiet 2>&1 || true
 """
+
+
+@app.command(name="hook-session-start")
+def hook_session_start(
+    db: DBOption = DEFAULT_DB,
+) -> None:
+    """Emit JSON for a Claude Code SessionStart hook.
+
+    Injects `additionalContext` that Claude picks up at session start.
+    Three states:
+
+    - No `.lore/` directory at all → suggest running `/lore:init` if
+      this looks like a codebase.
+    - `.lore/lore.db` exists but is empty → suggest `/lore:init` to
+      seed modules.
+    - `.lore/lore.db` exists with nodes → run reconcile; if drift,
+      surface a nudge.
+    """
+    # Use a fresh payload each time — the runtime consumes this on stdout.
+    out: dict[str, Any] = {
+        "hookSpecificOutput": {
+            "hookEventName": "SessionStart",
+            "additionalContext": "",
+        }
+    }
+
+    # Heuristic: is the cwd a codebase? Look for common project markers
+    # so we only nudge users in places where Lore makes sense.
+    looks_like_project = any(
+        (db.parent.parent / marker).exists()
+        for marker in (
+            "package.json",
+            "pyproject.toml",
+            "Cargo.toml",
+            "go.mod",
+            "Gemfile",
+            ".git",
+        )
+    ) or any(
+        any((child / marker).exists() for marker in ("package.json", "pyproject.toml"))
+        for child in (db.parent.parent.iterdir() if db.parent.parent.exists() else [])
+        if child.is_dir() and not child.name.startswith(".")
+    )
+
+    if not db.exists():
+        if looks_like_project:
+            out["hookSpecificOutput"]["additionalContext"] = (
+                "The Lore plugin is installed and this directory looks like "
+                "a project, but no Lore graph exists yet. Suggest to the "
+                "user that they run `/lore:init` to set up a knowledge "
+                "graph for this project. Do not run it yourself — let the "
+                "user decide."
+            )
+        typer.echo(json.dumps(out))
+        return
+
+    # DB exists — open it and check.
+    try:
+        conn = open_db(db)
+        node_count = conn.execute("SELECT COUNT(*) AS c FROM nodes").fetchone()["c"]
+    except Exception:
+        typer.echo(json.dumps(out))
+        return
+
+    if node_count == 0:
+        out["hookSpecificOutput"]["additionalContext"] = (
+            "Lore graph is empty for this project. Suggest to the user "
+            "that they run `/lore:init` to seed top-level modules."
+        )
+        typer.echo(json.dumps(out))
+        return
+
+    # Graph has content — run a cheap reconcile and surface drift summary.
+    root = db.resolve().parent.parent
+    report = _reconcile(conn, root)
+    drift = (
+        len(report["dead_refs"])
+        + len(report["stale"])
+        + len(report["never_verified"])
+    )
+    if drift > 0:
+        out["hookSpecificOutput"]["additionalContext"] = (
+            f"Lore reconcile at session start detected drift: "
+            f"{len(report['dead_refs'])} dead refs, "
+            f"{len(report['stale'])} stale, "
+            f"{len(report['never_verified'])} never verified. "
+            f"If the user touches any affected area, mention it and "
+            f"suggest running `/lore:reconcile` to review details."
+        )
+    typer.echo(json.dumps(out))
 
 
 @app.command(name="install-hooks")

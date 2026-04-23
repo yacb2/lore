@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.16] — 2026-04-23
+
+### Changed
+- **`/lore:init` rewritten as the single smart setup command.** Merges
+  what used to be `/lore:init` + `/lore:bootstrap` into one flow, asks
+  the user how to discover modules, and handles both layouts:
+  - **Workspace**: detects child repos (backend/, frontend/, packages),
+    offers three paths: **hierarchical** (recommended — repos as
+    top-level modules, inner modules per repo with `part_of` edges),
+    **flat** (skip repo level), **manual** (user lists names).
+  - **Single repo**: offers **auto-scan** (Sonnet) or **manual**.
+  - No matter the path, mandatory verification step applies
+    (`lore_audit` count comparison, report FAILURE on mismatch).
+- **`/lore:bootstrap` repurposed as the re-scan command.** Explicitly
+  requires `/lore:init` to have run first (checks for existing
+  modules). Use it to extend the graph with additional
+  capabilities/flows after initial setup.
+
+### Added
+- **`lore hook-session-start` CLI command**, invoked by the
+  `SessionStart` plugin hook. Returns Claude Code-compatible JSON with
+  `additionalContext` that nudges the user appropriately:
+  - No DB and the cwd looks like a codebase (has `pyproject.toml`,
+    `package.json`, `.git`, or children with manifests) → suggests
+    running `/lore:init`.
+  - DB exists but empty → suggests `/lore:init` to seed modules.
+  - DB exists with nodes → runs reconcile; if drift, surfaces a
+    summary so Claude can mention it when relevant in the session.
+  - Nothing looks like a project → silent.
+- **`hooks/hooks.json`** now delegates the SessionStart event to this
+  CLI instead of the old inline shell test.
+
+### Rationale
+- User feedback: "why do I have to run two commands when init is
+  always followed by bootstrap?" Fair — separation wasn't load-bearing
+  outside of niche cases. One command, one decision.
+- User feedback: "why do I have to create `.lore/` manually?" Already
+  fixed in v0.0.15 (MCP auto-creates) — this release fixes the
+  follow-up gap: after install, what do I do? The SessionStart
+  context nudge answers that question automatically.
+- User feedback: "in a multi-repo workspace the init should suggest
+  hierarchy — repos as top-level, apps/features as children." The
+  new init's hierarchical path does exactly this.
+
 ## [0.0.15] — 2026-04-23
 
 ### Changed

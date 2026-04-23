@@ -120,6 +120,49 @@ def test_install_hooks_creates_post_commit(tmp_path):
     assert "lore reconcile" in content
 
 
+def test_hook_session_start_suggests_init_when_no_db_in_project(tmp_path):
+    import json as _json
+
+    # Fake project: has pyproject.toml (so looks_like_project == True)
+    project = tmp_path / "proj"
+    project.mkdir()
+    (project / "pyproject.toml").write_text('[project]\nname="x"\n')
+    db = project / ".lore" / "lore.db"
+    result = runner.invoke(app, ["hook-session-start", "--db", str(db)])
+    assert result.exit_code == 0, result.output
+    payload = _json.loads(result.output)
+    ctx = payload["hookSpecificOutput"]["additionalContext"]
+    assert "/lore:init" in ctx
+    assert "no Lore graph exists" in ctx
+
+
+def test_hook_session_start_is_silent_outside_a_project(tmp_path):
+    import json as _json
+
+    # tmp_path has no project markers.
+    db = tmp_path / ".lore" / "lore.db"
+    result = runner.invoke(app, ["hook-session-start", "--db", str(db)])
+    assert result.exit_code == 0
+    payload = _json.loads(result.output)
+    assert payload["hookSpecificOutput"]["additionalContext"] == "", (
+        "hook must stay silent outside project-like directories"
+    )
+
+
+def test_hook_session_start_notes_empty_graph(tmp_path):
+    import json as _json
+
+    db = tmp_path / "lore.db"
+    _seed_empty_db(db) if False else None  # placeholder; we need real seed
+    from lore.graph import open_db as _open
+    _open(db).close()  # materialize empty DB
+    result = runner.invoke(app, ["hook-session-start", "--db", str(db)])
+    assert result.exit_code == 0
+    payload = _json.loads(result.output)
+    assert "empty" in payload["hookSpecificOutput"]["additionalContext"].lower()
+    assert "/lore:init" in payload["hookSpecificOutput"]["additionalContext"]
+
+
 def test_verify_updates_last_verified_at(tmp_path):
     import json as _json
 

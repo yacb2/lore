@@ -1,14 +1,24 @@
 ---
-description: Auto-discover this project's modules, capabilities and flows by scanning the code with a cheap model, then propose a seed graph for the user to approve. Ideal for onboarding a large existing codebase.
+description: Re-scan a Lore-initialized project and extend the graph with new capabilities and flows. Use AFTER /lore:init, when the codebase has grown or drifted.
 allowed-tools: [Bash, Read, Glob, Grep, Agent]
 ---
 
-Bootstrap Lore on a larger project using an economical scan. The project
-may be a single repo **or** a workspace containing several repos/packages
-— the scan handles both layouts.
+Re-scan a project that already has Lore initialized, and propose
+additional capabilities/flows to extend the graph. Complements
+`/lore:init` (which handles first-time setup). Run this when:
 
-1. **Ensure the DB exists.** If `.lore/lore.db` does not exist, run
-   `lore init` first.
+- A lot of new code was added since the last scan.
+- You want to fill in capabilities/flows for modules that were seeded
+  as empty placeholders.
+- You want to refresh `last_verified_at` timestamps after a big
+  refactor.
+
+**For first-time setup, use `/lore:init` instead.** This command
+assumes modules already exist and focuses on extending them.
+
+1. **Verify the graph is initialized.** Call `lore_list(type="module")`.
+   If there are zero modules, stop and tell the user to run
+   `/lore:init` first — bootstrap is not a first-time setup tool.
 
 2. **Delegate discovery to a sub-agent.** Bootstrap is run infrequently
    and the result seeds every future Lore operation, so **precision
