@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.15] — 2026-04-23
+
+### Changed
+- **MCP server now always auto-creates the database.** Dropped the
+  "refuse if `.lore/` doesn't exist" half-measure from v0.0.14. Forcing
+  users to `mkdir .lore/` before first use was friction without real
+  benefit: the plugin's job is to work out of the box, not to
+  second-guess user intent.
+
+  The original footgun (Claude Code launched from the wrong directory
+  → graph materialized at the wrong path) is now prevented with
+  signals instead of refusals:
+  - Every MCP start logs `using database at <absolute path>` to
+    stderr — unambiguous where writes are going.
+  - First-time materialization prints a loud "creating new Lore graph"
+    banner with the path, an explanation, and the exact command to
+    delete the empty graph if it was a mistake. Banner only fires once
+    (on the very first start for a path), so it remains a real signal
+    and not noise.
+
+  Net effect: open Claude Code anywhere → `/lore:init` → works. No
+  `mkdir`, no `lore init` shell ceremony, no "Reconnect" dance.
+
 ## [0.0.14] — 2026-04-23
 
 ### Changed

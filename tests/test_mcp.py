@@ -12,42 +12,53 @@ from lore.mcp import build_server
 from lore.mcp.server import run as mcp_run
 
 
-def test_mcp_run_refuses_when_lore_dir_also_missing(tmp_path, capsys):
-    """No DB and no `.lore/` parent → refuse. Guards the footgun of
-    launching from a directory that was never meant to host Lore."""
-    missing = tmp_path / "nope" / "lore.db"
-    assert not missing.parent.exists()
-    with pytest.raises(SystemExit) as exc:
-        mcp_run(missing)
-    assert exc.value.code == 1
-    assert not missing.exists(), "run() must not create the DB"
-    err = capsys.readouterr().err
-    assert "no `.lore/` directory" in err
-
-
-def test_mcp_run_auto_creates_when_lore_dir_exists(tmp_path, capsys, monkeypatch):
-    """Parent `.lore/` exists but DB doesn't → auto-create and open.
-    The user opted into Lore by creating the folder."""
-    lore_dir = tmp_path / ".lore"
-    lore_dir.mkdir()
-    db = lore_dir / "lore.db"
-    assert not db.exists()
+def _patch_fastmcp_run(monkeypatch):
+    """Stub FastMCP.run so we don't start the stdio loop in tests."""
+    from mcp.server.fastmcp import FastMCP
 
     called = {}
 
-    def fake_mcp_run_method(self):
+    def fake(self):
         called["ran"] = True
 
-    # We don't want to actually start the stdio loop in a test; patch
-    # FastMCP.run so run() returns after building the server.
-    from mcp.server.fastmcp import FastMCP
-    monkeypatch.setattr(FastMCP, "run", fake_mcp_run_method)
+    monkeypatch.setattr(FastMCP, "run", fake)
+    return called
+
+
+def test_mcp_run_auto_creates_missing_db(tmp_path, capsys, monkeypatch):
+    """Missing DB + missing parent dir → create both and proceed.
+    Zero-friction first-run for brand-new projects."""
+    db = tmp_path / "nope" / ".lore" / "lore.db"
+    assert not db.exists()
+    called = _patch_fastmcp_run(monkeypatch)
 
     mcp_run(db)
-    assert db.exists(), "DB must be auto-created when .lore/ parent exists"
+    assert db.exists(), "DB must be auto-created regardless of parent dir state"
     assert called.get("ran") is True
     err = capsys.readouterr().err
-    assert "auto-creating" in err
+    assert "creating new graph" in err
+    assert "using database at" in err
+
+
+def test_mcp_run_silent_banner_when_db_already_exists(
+    tmp_path, capsys, monkeypatch
+):
+    """Existing DB → no 'creating new graph' banner, only the path log.
+    The banner is reserved for first-time materialization so it remains
+    a real signal."""
+    db_dir = tmp_path / ".lore"
+    db_dir.mkdir()
+    db = db_dir / "lore.db"
+    # Materialize the DB once.
+    from lore.graph import open_db as _open
+    _open(db).close()
+    assert db.exists()
+
+    _patch_fastmcp_run(monkeypatch)
+    mcp_run(db)
+    err = capsys.readouterr().err
+    assert "creating new graph" not in err
+    assert "using database at" in err
 
 
 @pytest.mark.anyio

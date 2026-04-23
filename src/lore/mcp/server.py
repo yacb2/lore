@@ -336,35 +336,26 @@ def build_server(db_path: str | Path) -> FastMCP:
 def run(db_path: str | Path) -> None:
     """Run the MCP server over stdio.
 
-    Behavior:
-      - If the DB file exists → open it. Happy path.
-      - If the parent `.lore/` directory exists but the DB doesn't →
-        create it. The user has clearly opted into Lore for this
-        project (the `.lore/` folder is an explicit signal); auto-
-        creating the DB there eliminates a "MCP failed, now run
-        `lore init`, now reconnect" ceremony with zero risk of
-        writing to the wrong place.
-      - If neither the DB nor its `.lore/` parent exist → refuse to
-        start. This is the footgun we are guarding against: Claude
-        Code launched from a parent directory (workspace root, home,
-        /tmp, …) that happens not to have Lore. Silent creation
-        there would diverge from the real graph.
+    Always opens (and creates, if missing) the database at the given
+    path. The server prints the resolved path to stderr on every start
+    so the user can verify where writes are going; it also prints a
+    loud "created new Lore graph" banner the first time a new path is
+    materialized. Those two signals are sufficient to catch the "Claude
+    Code launched from the wrong directory" footgun without forcing
+    users to precreate `.lore/` by hand.
     """
     resolved = Path(db_path).resolve()
-    if not resolved.exists():
-        if not resolved.parent.exists():
-            sys.stderr.write(
-                f"Lore MCP: no database at {resolved} and no `.lore/` "
-                f"directory at {resolved.parent}. Create the directory "
-                f"(`mkdir -p {resolved.parent}`) or run `lore init --db "
-                f"{resolved}` to opt into Lore for this project. "
-                f"Refusing to auto-create at an unconfigured path to avoid "
-                f"writing the graph to the wrong directory.\n"
-            )
-            raise SystemExit(1)
+    was_new = not resolved.exists()
+    if was_new:
         sys.stderr.write(
-            f"Lore MCP: {resolved} missing; auto-creating inside existing "
-            f"{resolved.parent}\n"
+            "\n"
+            "┌──────────────────────────────────────────────────────────────\n"
+            "│ Lore MCP: creating new graph\n"
+            f"│ path: {resolved}\n"
+            "│ If this is not the project you intended, close Claude Code\n"
+            "│ and re-open it from the correct directory. You can delete\n"
+            f"│ {resolved.parent} to remove this empty graph.\n"
+            "└──────────────────────────────────────────────────────────────\n"
         )
     sys.stderr.write(f"Lore MCP: using database at {resolved}\n")
     mcp = build_server(resolved)
