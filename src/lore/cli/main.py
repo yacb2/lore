@@ -257,7 +257,10 @@ def reconcile(
     report = _reconcile(
         conn, resolved_root, since=since, stale_days=stale_days
     )
-    total = (
+    # Drift = actionable findings. `planned` is informational (draft
+    # nodes whose code hasn't landed yet), not drift — never affects
+    # exit code.
+    drift = (
         len(report["dead_refs"])
         + len(report["stale"])
         + len(report["never_verified"])
@@ -265,10 +268,10 @@ def reconcile(
 
     if json_output:
         typer.echo(json.dumps(report, indent=2, sort_keys=True))
-        raise typer.Exit(code=1 if total else 0)
+        raise typer.Exit(code=1 if drift else 0)
 
     if quiet:
-        if total == 0:
+        if drift == 0:
             raise typer.Exit(code=0)
         typer.echo(
             f"drift: dead={len(report['dead_refs'])} "
@@ -284,17 +287,22 @@ def reconcile(
     for w in report["warnings"]:
         typer.echo(f"  warning: {w}")
 
-    if total == 0:
+    if drift == 0 and not report["planned"]:
         typer.echo("OK — no drift")
         return
 
-    for category in ("dead_refs", "stale", "never_verified"):
+    for category in ("dead_refs", "stale", "never_verified", "planned"):
         items = report[category]
         if not items:
             continue
-        typer.echo(f"\n-- {category} ({len(items)}) --")
+        label = category if category != "planned" else "planned (draft nodes — code not yet landed)"
+        typer.echo(f"\n-- {label} ({len(items)}) --")
         for it in items:
             typer.echo(f"  {it}")
+
+    if drift == 0:
+        typer.echo("\nOK — no drift (planned nodes reported as informational)")
+        return
     raise typer.Exit(code=1)
 
 

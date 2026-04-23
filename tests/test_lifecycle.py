@@ -45,6 +45,43 @@ def test_reconcile_empty_graph_has_no_drift(conn, project_root):
     assert report["warnings"] == []
 
 
+def test_reconcile_draft_node_with_missing_file_is_planned_not_dead(
+    conn, project_root
+):
+    add_node(
+        conn,
+        node_id="flow-future",
+        type="flow",
+        title="Not yet implemented",
+        status="draft",
+        metadata={
+            "source": "user_stated",
+            "source_ref": "backend/apps/future/views.py:FutureView.post",
+            "last_verified_at": _today(),
+        },
+    )
+    add_node(
+        conn,
+        node_id="flow-real-dead",
+        type="flow",
+        title="Was real, file removed",
+        status="active",
+        metadata={
+            "source": "inferred_from_code",
+            "source_ref": "src/ghost.py:10",
+            "last_verified_at": _today(),
+        },
+    )
+    report = reconcile(conn, project_root)
+    dead_ids = {x["id"] for x in report["dead_refs"]}
+    planned_ids = {x["id"] for x in report["planned"]}
+    assert "flow-real-dead" in dead_ids
+    assert "flow-future" in planned_ids
+    assert "flow-future" not in dead_ids, (
+        "draft nodes must not be classified as dead refs"
+    )
+
+
 def test_reconcile_detects_dead_ref(conn, project_root):
     add_node(
         conn,

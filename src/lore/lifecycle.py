@@ -76,12 +76,13 @@ def reconcile(
             )
 
     rows = conn.execute(
-        "SELECT id, metadata_json FROM nodes WHERE metadata_json IS NOT NULL"
+        "SELECT id, status, metadata_json FROM nodes WHERE metadata_json IS NOT NULL"
     ).fetchall()
 
     dead_refs: list[dict[str, Any]] = []
     stale: list[dict[str, Any]] = []
     never_verified: list[dict[str, Any]] = []
+    planned: list[dict[str, Any]] = []
 
     now = datetime.now(timezone.utc)
     scanned = 0
@@ -101,9 +102,22 @@ def reconcile(
 
         scanned += 1
         if not (root / path_str).exists():
-            dead_refs.append(
-                {"id": row["id"], "source_ref": source_ref, "reason": "file_missing"}
-            )
+            # Draft nodes are "in-progress, not yet real" by definition;
+            # a missing file is expected and informational, not a dead
+            # reference. Surface separately so the user still has
+            # visibility into what hasn't landed yet.
+            if row["status"] == "draft":
+                planned.append(
+                    {"id": row["id"], "source_ref": source_ref}
+                )
+            else:
+                dead_refs.append(
+                    {
+                        "id": row["id"],
+                        "source_ref": source_ref,
+                        "reason": "file_missing",
+                    }
+                )
             continue
 
         last_verified = meta.get("last_verified_at")
@@ -136,6 +150,7 @@ def reconcile(
         "dead_refs": sorted(dead_refs, key=lambda x: x["id"]),
         "stale": sorted(stale, key=lambda x: -x["days_since"]),
         "never_verified": sorted(never_verified, key=lambda x: x["id"]),
+        "planned": sorted(planned, key=lambda x: x["id"]),
         "scanned_nodes": scanned,
         "scope": f"since:{since}" if since and touched is not None else "full",
         "stale_threshold_days": stale_days,

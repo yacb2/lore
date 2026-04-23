@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.11] — 2026-04-23
+
+### Changed
+- **`lore reconcile` is now status-aware.** Nodes whose `status="draft"`
+  point at files that do not (yet) exist are classified as `planned`
+  (informational), not `dead_refs` (actionable drift). Rationale:
+  Lore captures both implemented *and* planned architecture; a draft
+  node describing an endpoint that hasn't been coded yet is not a
+  broken reference, it is a forward-looking spec. Surfaced in a
+  dedicated `planned` array in the JSON output and a separate section
+  in the text output. Does not affect the exit code — the CLI still
+  exits 0 on "no drift" even when there are planned items.
+
+### Notes
+- Observed in real-world testing (echo_lab_ws): after a Sonnet
+  bootstrap, 9 flows had `source_ref` values that looked like
+  hallucinations but turned out to be genuine forward-looking
+  architecture planned but not yet implemented. Marking those
+  nodes `status="draft"` now cleanly separates "plan vs code drift"
+  from "graph vs code rot".
+
 ## [0.0.10] — 2026-04-23
 
 ### Changed
