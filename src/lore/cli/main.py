@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from pathlib import Path
 from typing import Annotated, Any
@@ -21,6 +20,7 @@ from lore.graph import (
 )
 from lore.graph.queries import FINDING_KEYS
 from lore.lifecycle import reconcile as _reconcile
+from lore.sync import compute_sync_report as _compute_sync_report
 from lore.graph import (
     find_variants as _find_variants,
 )
@@ -469,57 +469,37 @@ def hook_session_start(
     typer.echo(json.dumps(out))
 
 
-def _git_repos_under(root: Path, max_depth: int = 2) -> list[Path]:
-    """Return git repo roots at or below `root` (cwd or its direct children).
-
-    A workspace may hold several sibling repos (split-repo), or `root` itself
-    may be the repo. Limit depth so we don't recurse into deep trees.
-    """
-    candidates: list[Path] = []
-    if (root / ".git").exists():
-        candidates.append(root)
-    if max_depth > 0 and root.exists():
-        for child in root.iterdir():
-            if child.is_dir() and not child.name.startswith("."):
-                candidates.extend(_git_repos_under(child, max_depth - 1))
-    return candidates
-
-
-def _last_commit_files(repo: Path) -> tuple[str, list[str]] | None:
-    """Return (short_sha, files) for the most recent commit in `repo`, or None."""
-    try:
-        sha = subprocess.run(
-            ["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, check=True, timeout=5,
-        ).stdout.strip()
-        files_raw = subprocess.run(
-            ["git", "-C", str(repo), "diff-tree", "--no-commit-id",
-             "--name-only", "-r", "HEAD"],
-            capture_output=True, text=True, check=True, timeout=5,
-        ).stdout
-    except (subprocess.SubprocessError, FileNotFoundError):
-        return None
-    files = [f for f in files_raw.splitlines() if f.strip()]
-    return (sha, files) if files else None
-
-
-_BORING_SUFFIXES = (
-    ".css", ".scss", ".sass", ".less",
-    ".md", ".rst", ".txt",
-    ".lock", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".gif",
-)
-_BORING_NAMES = {
-    "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "poetry.lock",
-    "uv.lock", "Cargo.lock", "go.sum",
-}
-
-
-def _is_boring(path: str) -> bool:
-    """Heuristic: files unlikely to introduce business knowledge worth a node."""
-    name = path.rsplit("/", 1)[-1]
-    if name in _BORING_NAMES:
-        return True
-    return path.endswith(_BORING_SUFFIXES)
+def _format_sync_blocks(report: dict[str, Any], *, max_lines: int) -> list[str]:
+    """Render a sync report as human-readable blocks for hook nudges."""
+    blocks: list[str] = []
+    for repo in report.get("repos", []):
+        block = [f"Commit {repo['label']} in `{repo['repo']}` touched:"]
+        if repo["mapped"]:
+            block.append(
+                "Files already mapped to graph nodes — review whether "
+                "the change updates them:"
+            )
+            for entry in repo["mapped"][:max_lines]:
+                ids = ", ".join(f"`{n['id']}`" for n in entry["nodes"][:3])
+                block.append(f"  - {entry['path']} → {ids}")
+            extra = len(repo["mapped"]) - max_lines
+            if extra > 0:
+                block.append(f"  - …and {extra} more mapped files")
+        if repo["unmapped"]:
+            block.append(
+                "Unmapped files — if any introduces a new flow, "
+                "capability, rule, command, model, signal, event, form, "
+                "or decision, persist it now via `lore_add_node`/"
+                "`lore_add_edge` with `metadata.source_ref`:"
+            )
+            for f in repo["unmapped"][:max_lines]:
+                block.append(f"  - {f}")
+            extra = len(repo["unmapped"]) - max_lines
+            if extra > 0:
+                block.append(f"  - …and {extra} more unmapped files")
+        if len(block) > 1:
+            blocks.append("\n".join(block))
+    return blocks
 
 
 @app.command(name="hook-post-tool-use")
@@ -554,16 +534,6 @@ def hook_post_tool_use(
         typer.echo(json.dumps(out))
         return
 
-    # Best effort: a non-zero exit usually means the commit didn't happen,
-    # but pre-commit hooks may also exit non-zero after a successful commit.
-    # We re-check via `git log` below, so a noisy command is fine.
-
-    cwd = Path.cwd()
-    repos = _git_repos_under(cwd)
-    if not repos:
-        typer.echo(json.dumps(out))
-        return
-
     # Bail out early if the graph isn't set up yet.
     if not db.exists():
         typer.echo(json.dumps(out))
@@ -578,67 +548,8 @@ def hook_post_tool_use(
         typer.echo(json.dumps(out))
         return
 
-    # Collect changed files across every repo under the workspace and
-    # split them into "already in graph" vs "unmapped" by comparing
-    # against `metadata.source_ref`.
-    rows = conn.execute(
-        "SELECT id, type, title, metadata_json FROM nodes "
-        "WHERE metadata_json LIKE '%\"source_ref\"%'"
-    ).fetchall()
-    refs: dict[str, list[tuple[str, str, str]]] = {}
-    for row in rows:
-        try:
-            meta = json.loads(row["metadata_json"] or "{}")
-        except json.JSONDecodeError:
-            continue
-        ref = (meta.get("source_ref") or "").split(":", 1)[0].strip()
-        if ref:
-            refs.setdefault(ref, []).append((row["id"], row["type"], row["title"]))
-
-    blocks: list[str] = []
-    for repo in repos:
-        info = _last_commit_files(repo)
-        if not info:
-            continue
-        sha, files = info
-        rel_repo = repo.relative_to(cwd) if repo != cwd else Path(".")
-        # Normalize: source_ref is relative to repo root, not workspace root.
-        mapped: list[tuple[str, list[tuple[str, str, str]]]] = []
-        unmapped: list[str] = []
-        for f in files:
-            if _is_boring(f):
-                continue
-            hit = refs.get(f)
-            if hit:
-                mapped.append((f, hit))
-            else:
-                unmapped.append(f)
-        if not mapped and not unmapped:
-            continue
-        block = [f"Commit {sha} in `{rel_repo}` touched:"]
-        if mapped:
-            block.append(
-                "Files already mapped to graph nodes — review whether "
-                "the change updates them:"
-            )
-            for f, hits in mapped[:10]:
-                ids = ", ".join(f"`{nid}`" for nid, _, _ in hits[:3])
-                block.append(f"  - {f} → {ids}")
-            if len(mapped) > 10:
-                block.append(f"  - …and {len(mapped) - 10} more mapped files")
-        if unmapped:
-            block.append(
-                "Unmapped files — if any introduces a new flow, "
-                "capability, rule, command, model, signal, event, form, "
-                "or decision, persist it now via `lore_add_node`/"
-                "`lore_add_edge` with `metadata.source_ref`:"
-            )
-            for f in unmapped[:15]:
-                block.append(f"  - {f}")
-            if len(unmapped) > 15:
-                block.append(f"  - …and {len(unmapped) - 15} more unmapped files")
-        blocks.append("\n".join(block))
-
+    report = _compute_sync_report(conn, Path.cwd())
+    blocks = _format_sync_blocks(report, max_lines=15)
     if blocks:
         intro = (
             "Lore checkpoint after `git commit`. The graph is the project's "
@@ -648,6 +559,45 @@ def hook_post_tool_use(
             intro + "\n\n" + "\n\n".join(blocks)
         )
     typer.echo(json.dumps(out))
+
+
+@app.command(name="sync-plan")
+def sync_plan(
+    since: Annotated[
+        str | None,
+        typer.Option(
+            "--since",
+            help="Git revision to diff against HEAD (e.g. HEAD~10, v2.24.0, a sha). "
+                 "Default scans only the most recent commit.",
+        ),
+    ] = None,
+    db: DBOption = DEFAULT_DB,
+    include_boring: Annotated[
+        bool,
+        typer.Option(
+            "--include-boring",
+            help="Do not filter lockfiles, CSS, images, docs.",
+        ),
+    ] = False,
+) -> None:
+    """Emit a JSON dossier of changed files vs graph nodes.
+
+    Compares the changed files in `since..HEAD` (or just HEAD when
+    `--since` is omitted) against `metadata.source_ref` on every node,
+    and reports `mapped` (files whose path appears in some node) vs
+    `unmapped` (candidates for new nodes). Read-only.
+
+    Designed to be consumed by `/lore:sync`. Exit code is 0 on success
+    and 1 if there are unmapped files (so it can be used in scripts).
+    """
+    _require_db(db)
+    conn = open_db(db)
+    report = _compute_sync_report(
+        conn, Path.cwd(), since=since, include_boring=include_boring
+    )
+    typer.echo(json.dumps(report, indent=2))
+    if report["totals"]["unmapped"] > 0:
+        raise typer.Exit(code=1)
 
 
 @app.command(name="install-hooks")

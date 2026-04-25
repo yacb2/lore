@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.20] — 2026-04-25
+
+### Added
+- **`/lore:sync` slash command** — closes the loop reconcile cannot:
+  given a git revision (e.g. `HEAD~10`, `v2.24.0`, a sha), diff the
+  code against `HEAD`, classify each changed file as either *mapped*
+  (already pointed at by `metadata.source_ref` on some node) or
+  *unmapped* (candidate for a new node), and walk both lists with
+  the user before persisting. Boring files (lockfiles, CSS, images,
+  docs) are filtered. Persistence requires per-batch confirmation;
+  every new node carries `inferred_from_code` provenance with
+  `confidence: medium` and a fresh `last_verified_at`.
+- **`lore sync-plan` CLI subcommand** — read-only JSON dossier that
+  the slash command consumes. Emits `{repos: [...], totals: {...}}`
+  shape for any git revision, multi-repo workspaces included. Exits
+  1 when there are unmapped files so it can be used in scripts.
+- **`src/lore/sync.py` module** — extracts `find_git_repos`,
+  `is_boring`, and `compute_sync_report` so the PostToolUse
+  checkpoint hook and the sync command share one implementation.
+
+### Changed
+- **PostToolUse `git commit` hook now delegates to `lore.sync`** —
+  same behavior, less duplication. Drops the inlined helpers
+  introduced in v0.0.19.
+
+### Why this release
+- v0.0.19 made the model *aware* a commit had happened. v0.0.20 gives
+  the user (and the model) the tooling to act on it, plus a way to
+  catch up after a period of drift. NS Backoffice has 48h of
+  unreflected commits; running `/lore:sync HEAD~15` should walk the
+  whole gap in one session.
+
 ## [0.0.19] — 2026-04-25
 
 ### Changed

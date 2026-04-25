@@ -116,6 +116,7 @@ def test_expected_plugin_files_present() -> None:
         COMMANDS_DIR / "reconcile.md",
         COMMANDS_DIR / "verify.md",
         COMMANDS_DIR / "stats.md",
+        COMMANDS_DIR / "sync.md",
         PLUGIN_DIR / "hooks" / "hooks.json",
     ]
     missing = [str(p.relative_to(REPO_ROOT)) for p in expected if not p.exists()]
