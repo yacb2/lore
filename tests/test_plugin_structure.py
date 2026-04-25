@@ -136,3 +136,20 @@ def test_hooks_json_has_session_start() -> None:
         and "lore hook-session-start" in h.get("command", "")
         for h in inner
     ), "SessionStart must invoke `lore hook-session-start`"
+
+
+def test_hooks_json_has_post_tool_use_for_bash() -> None:
+    data = json.loads((PLUGIN_DIR / "hooks" / "hooks.json").read_text())
+    assert "PostToolUse" in data["hooks"], (
+        "PostToolUse hook expected to nudge after git commit"
+    )
+    post = data["hooks"]["PostToolUse"]
+    assert isinstance(post, list) and post
+    matchers = [entry.get("matcher") for entry in post]
+    assert "Bash" in matchers, "PostToolUse must match the Bash tool"
+    bash_entry = next(e for e in post if e.get("matcher") == "Bash")
+    assert any(
+        h.get("type") == "command"
+        and "lore hook-post-tool-use" in h.get("command", "")
+        for h in bash_entry.get("hooks", [])
+    ), "PostToolUse must invoke `lore hook-post-tool-use`"

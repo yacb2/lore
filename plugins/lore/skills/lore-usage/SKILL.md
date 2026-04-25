@@ -1,6 +1,6 @@
 ---
 name: lore-usage
-description: Keep the Lore knowledge graph in sync with ongoing work. Invoke automatically whenever the conversation touches the project's business knowledge — how flows work, which capabilities exist, what rules protect an entity, architectural decisions, module dependencies, or contradictions between the graph and the code being discussed.
+description: Keep the Lore knowledge graph in sync with ongoing work. ALWAYS use this skill when the user adds, changes, or removes any of the following in code or in conversation — a new endpoint, a new model, a new management command, a new Django signal, a new event, a new validation rule, a new form, a new Vue page, a new module/app, a new architectural decision, a new flow that supersedes another, a new dependency between modules, a new feature flag, or a new entity. ALWAYS use it when the user asks "how does X work?", "what flows touch Y?", "which rules protect Z?", or any question whose answer should be in a project knowledge graph. ALWAYS use it after editing files that look like business logic (views, services, commands, signals, serializers, validators, hooks). Read the graph before answering, write nodes/edges after deciding. Skip only for pure refactors that change no behavior, dependency bumps, CSS/styling-only changes, and exploratory talk.
 user-invocable: false
 ---
 

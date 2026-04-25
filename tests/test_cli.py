@@ -163,6 +163,63 @@ def test_hook_session_start_notes_empty_graph(tmp_path):
     assert "/lore:init" in payload["hookSpecificOutput"]["additionalContext"]
 
 
+def test_hook_session_start_injects_operating_directive_when_populated(tmp_path):
+    import json as _json
+
+    db = tmp_path / "lore.db"
+    _seed(db)
+    result = runner.invoke(app, ["hook-session-start", "--db", str(db)])
+    assert result.exit_code == 0, result.output
+    ctx = _json.loads(result.output)["hookSpecificOutput"]["additionalContext"]
+    # Must mention the MCP tools and the operating rules — this is the
+    # whole point of nudging the model every session.
+    assert "lore_query" in ctx
+    assert "lore_add_node" in ctx or "lore_add_edge" in ctx
+    assert "lore-usage" in ctx
+
+
+def test_hook_post_tool_use_silent_for_non_bash_tool(tmp_path):
+    import json as _json
+
+    db = tmp_path / "lore.db"
+    _seed(db)
+    payload = _json.dumps({"tool_name": "Edit", "tool_input": {}})
+    result = runner.invoke(
+        app, ["hook-post-tool-use", "--db", str(db)], input=payload
+    )
+    assert result.exit_code == 0
+    assert _json.loads(result.output)["hookSpecificOutput"]["additionalContext"] == ""
+
+
+def test_hook_post_tool_use_silent_when_command_is_not_git_commit(tmp_path):
+    import json as _json
+
+    db = tmp_path / "lore.db"
+    _seed(db)
+    payload = _json.dumps(
+        {"tool_name": "Bash", "tool_input": {"command": "ls -la"}}
+    )
+    result = runner.invoke(
+        app, ["hook-post-tool-use", "--db", str(db)], input=payload
+    )
+    assert result.exit_code == 0
+    assert _json.loads(result.output)["hookSpecificOutput"]["additionalContext"] == ""
+
+
+def test_hook_post_tool_use_silent_when_db_missing(tmp_path):
+    import json as _json
+
+    db = tmp_path / "missing.db"  # never created
+    payload = _json.dumps(
+        {"tool_name": "Bash", "tool_input": {"command": "git commit -m x"}}
+    )
+    result = runner.invoke(
+        app, ["hook-post-tool-use", "--db", str(db)], input=payload
+    )
+    assert result.exit_code == 0
+    assert _json.loads(result.output)["hookSpecificOutput"]["additionalContext"] == ""
+
+
 def test_verify_updates_last_verified_at(tmp_path):
     import json as _json
 

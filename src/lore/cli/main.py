@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -421,7 +423,9 @@ def hook_session_start(
         typer.echo(json.dumps(out))
         return
 
-    # Graph has content — run a cheap reconcile and surface drift summary.
+    # Graph has content — always inject an operating directive so the
+    # `lore-usage` skill stays top of mind for the whole session, then
+    # append a drift summary if reconcile finds anything.
     root = db.resolve().parent.parent
     report = _reconcile(conn, root)
     drift = (
@@ -429,14 +433,219 @@ def hook_session_start(
         + len(report["stale"])
         + len(report["never_verified"])
     )
+    parts = [
+        f"This project has a Lore knowledge graph at `{db}` with "
+        f"{node_count} nodes. The Lore MCP server (`lore_*` tools) and "
+        f"the `lore-usage` skill are available.",
+        "Operating rules for this session:",
+        "1. Before answering questions about how something works in this "
+        "project, query the graph first with `lore_query`/`lore_list`/"
+        "`lore_get_node`. Cite node ids when you use them.",
+        "2. After editing code that introduces or changes business "
+        "behavior — new endpoints, models, commands, signals, events, "
+        "rules, forms, modules, decisions, or supersedes relations — "
+        "persist the change with `lore_add_node`/`lore_add_edge`/"
+        "`lore_update_node`. Always set `metadata.source`, "
+        "`metadata.confidence`, and `metadata.source_ref` (path:line).",
+        "3. Skip persistence only for pure refactors with no behavior "
+        "change, dependency bumps, CSS-only changes, and exploratory "
+        "talk.",
+        "4. If a `git commit` happens during the session, treat it as a "
+        "checkpoint: confirm the changed files have been reflected in "
+        "the graph before moving on.",
+        "Read the `lore-usage` skill for full conventions (provenance, "
+        "soft-delete, relation pairs, naming).",
+    ]
     if drift > 0:
-        out["hookSpecificOutput"]["additionalContext"] = (
-            f"Lore reconcile at session start detected drift: "
+        parts.append(
+            f"Reconcile at session start detected drift: "
             f"{len(report['dead_refs'])} dead refs, "
             f"{len(report['stale'])} stale, "
             f"{len(report['never_verified'])} never verified. "
             f"If the user touches any affected area, mention it and "
-            f"suggest running `/lore:reconcile` to review details."
+            f"suggest running `/lore:reconcile`."
+        )
+    out["hookSpecificOutput"]["additionalContext"] = "\n".join(parts)
+    typer.echo(json.dumps(out))
+
+
+def _git_repos_under(root: Path, max_depth: int = 2) -> list[Path]:
+    """Return git repo roots at or below `root` (cwd or its direct children).
+
+    A workspace may hold several sibling repos (split-repo), or `root` itself
+    may be the repo. Limit depth so we don't recurse into deep trees.
+    """
+    candidates: list[Path] = []
+    if (root / ".git").exists():
+        candidates.append(root)
+    if max_depth > 0 and root.exists():
+        for child in root.iterdir():
+            if child.is_dir() and not child.name.startswith("."):
+                candidates.extend(_git_repos_under(child, max_depth - 1))
+    return candidates
+
+
+def _last_commit_files(repo: Path) -> tuple[str, list[str]] | None:
+    """Return (short_sha, files) for the most recent commit in `repo`, or None."""
+    try:
+        sha = subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, check=True, timeout=5,
+        ).stdout.strip()
+        files_raw = subprocess.run(
+            ["git", "-C", str(repo), "diff-tree", "--no-commit-id",
+             "--name-only", "-r", "HEAD"],
+            capture_output=True, text=True, check=True, timeout=5,
+        ).stdout
+    except (subprocess.SubprocessError, FileNotFoundError):
+        return None
+    files = [f for f in files_raw.splitlines() if f.strip()]
+    return (sha, files) if files else None
+
+
+_BORING_SUFFIXES = (
+    ".css", ".scss", ".sass", ".less",
+    ".md", ".rst", ".txt",
+    ".lock", ".png", ".jpg", ".jpeg", ".svg", ".ico", ".gif",
+)
+_BORING_NAMES = {
+    "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "poetry.lock",
+    "uv.lock", "Cargo.lock", "go.sum",
+}
+
+
+def _is_boring(path: str) -> bool:
+    """Heuristic: files unlikely to introduce business knowledge worth a node."""
+    name = path.rsplit("/", 1)[-1]
+    if name in _BORING_NAMES:
+        return True
+    return path.endswith(_BORING_SUFFIXES)
+
+
+@app.command(name="hook-post-tool-use")
+def hook_post_tool_use(
+    db: DBOption = DEFAULT_DB,
+) -> None:
+    """Emit JSON for a Claude Code PostToolUse hook (matcher: Bash).
+
+    Reads the hook payload on stdin. If the Bash command was a successful
+    `git commit`, lists the files in the resulting HEAD commit and nudges
+    the model to reflect them in the Lore graph. Stays silent otherwise.
+    """
+    out: dict[str, Any] = {
+        "hookSpecificOutput": {
+            "hookEventName": "PostToolUse",
+            "additionalContext": "",
+        }
+    }
+
+    try:
+        payload = json.loads(sys.stdin.read() or "{}")
+    except json.JSONDecodeError:
+        typer.echo(json.dumps(out))
+        return
+
+    if payload.get("tool_name") != "Bash":
+        typer.echo(json.dumps(out))
+        return
+
+    command = (payload.get("tool_input") or {}).get("command", "")
+    if "git commit" not in command:
+        typer.echo(json.dumps(out))
+        return
+
+    # Best effort: a non-zero exit usually means the commit didn't happen,
+    # but pre-commit hooks may also exit non-zero after a successful commit.
+    # We re-check via `git log` below, so a noisy command is fine.
+
+    cwd = Path.cwd()
+    repos = _git_repos_under(cwd)
+    if not repos:
+        typer.echo(json.dumps(out))
+        return
+
+    # Bail out early if the graph isn't set up yet.
+    if not db.exists():
+        typer.echo(json.dumps(out))
+        return
+    try:
+        conn = open_db(db)
+        node_count = conn.execute("SELECT COUNT(*) AS c FROM nodes").fetchone()["c"]
+    except Exception:
+        typer.echo(json.dumps(out))
+        return
+    if node_count == 0:
+        typer.echo(json.dumps(out))
+        return
+
+    # Collect changed files across every repo under the workspace and
+    # split them into "already in graph" vs "unmapped" by comparing
+    # against `metadata.source_ref`.
+    rows = conn.execute(
+        "SELECT id, type, title, metadata_json FROM nodes "
+        "WHERE metadata_json LIKE '%\"source_ref\"%'"
+    ).fetchall()
+    refs: dict[str, list[tuple[str, str, str]]] = {}
+    for row in rows:
+        try:
+            meta = json.loads(row["metadata_json"] or "{}")
+        except json.JSONDecodeError:
+            continue
+        ref = (meta.get("source_ref") or "").split(":", 1)[0].strip()
+        if ref:
+            refs.setdefault(ref, []).append((row["id"], row["type"], row["title"]))
+
+    blocks: list[str] = []
+    for repo in repos:
+        info = _last_commit_files(repo)
+        if not info:
+            continue
+        sha, files = info
+        rel_repo = repo.relative_to(cwd) if repo != cwd else Path(".")
+        # Normalize: source_ref is relative to repo root, not workspace root.
+        mapped: list[tuple[str, list[tuple[str, str, str]]]] = []
+        unmapped: list[str] = []
+        for f in files:
+            if _is_boring(f):
+                continue
+            hit = refs.get(f)
+            if hit:
+                mapped.append((f, hit))
+            else:
+                unmapped.append(f)
+        if not mapped and not unmapped:
+            continue
+        block = [f"Commit {sha} in `{rel_repo}` touched:"]
+        if mapped:
+            block.append(
+                "Files already mapped to graph nodes — review whether "
+                "the change updates them:"
+            )
+            for f, hits in mapped[:10]:
+                ids = ", ".join(f"`{nid}`" for nid, _, _ in hits[:3])
+                block.append(f"  - {f} → {ids}")
+            if len(mapped) > 10:
+                block.append(f"  - …and {len(mapped) - 10} more mapped files")
+        if unmapped:
+            block.append(
+                "Unmapped files — if any introduces a new flow, "
+                "capability, rule, command, model, signal, event, form, "
+                "or decision, persist it now via `lore_add_node`/"
+                "`lore_add_edge` with `metadata.source_ref`:"
+            )
+            for f in unmapped[:15]:
+                block.append(f"  - {f}")
+            if len(unmapped) > 15:
+                block.append(f"  - …and {len(unmapped) - 15} more unmapped files")
+        blocks.append("\n".join(block))
+
+    if blocks:
+        intro = (
+            "Lore checkpoint after `git commit`. The graph is the project's "
+            "living memory; reflect substantive changes before moving on."
+        )
+        out["hookSpecificOutput"]["additionalContext"] = (
+            intro + "\n\n" + "\n\n".join(blocks)
         )
     typer.echo(json.dumps(out))
 

@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.19] — 2026-04-25
+
+### Changed
+- **`lore-usage` skill description rewritten with explicit triggers** —
+  the previous description leaned on abstract terms ("business
+  knowledge, flows, capabilities") that the model rarely recognized
+  during code-writing sessions, so the skill went un-invoked even when
+  it should have fired. The new description names concrete code
+  artifacts (endpoints, models, management commands, signals,
+  serializers, validators, hooks, Vue pages) and uses the `ALWAYS use
+  this skill when…` pattern that proven aidex skills rely on. Also
+  enumerates skip conditions (pure refactors, dependency bumps,
+  CSS-only changes) so the model has a clear off-switch.
+- **SessionStart hook always injects an operating directive when the
+  graph is populated** — previously the hook was silent unless
+  reconcile detected drift, which meant a healthy graph received zero
+  reinforcement turn after turn and the `lore-usage` skill drifted out
+  of the model's working set. Now every session that has a Lore graph
+  gets a short directive listing the read-first / write-on-decision
+  rules, the provenance keys to set, and a pointer to the skill for
+  full conventions. Drift summary, when present, is appended.
+
+### Added
+- **PostToolUse hook tracks `git commit` as a Lore checkpoint** — new
+  `lore hook-post-tool-use` CLI command, registered under PostToolUse
+  with matcher `Bash`. When the model runs `git commit`, the hook
+  inspects the resulting HEAD commit across every git repo under the
+  cwd, maps changed files against `metadata.source_ref` on graph
+  nodes, and injects a structured nudge listing (a) files already
+  mapped to nodes that may need updates and (b) unmapped files that
+  could introduce new flows/rules/capabilities. Boring suffixes
+  (lockfiles, CSS, images, docs) are filtered out. Stays silent when
+  the tool isn't Bash, the command isn't `git commit`, or the graph
+  doesn't exist yet — the hook never blocks a commit.
+
+### Why this release
+- Empirical observation across NS Backoffice (2026-04-23 → 2026-04-25):
+  170-node graph received zero writes for ~48h despite 15+ commits
+  introducing new commands, flows, and rules in code. The
+  auto-invocation pathway through skill descriptions alone is too
+  weak to keep the graph fresh during normal development. This
+  release moves the load-bearing signal from probabilistic
+  (description match) to deterministic (hook-injected context every
+  session, plus a hard checkpoint at every commit).
+
 ## [0.0.18] — 2026-04-23
 
 ### Added
