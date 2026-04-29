@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-04-29
+
+### Changed
+- CHANGELOG: removed internal project names from earlier release notes
+  ahead of making the repository public. The technical lessons remain;
+  only the proper nouns are gone.
+
 ## [0.1.1] — 2026-04-29
 
 ### Added
@@ -21,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] — 2026-04-29
 
 First minor bump — driven by an audit of the plugin's real-world usage in
-3 active projects (Echolab, NS Backoffice, Spainfilmhub Web). Targets the
+three real-world projects in active use. Targets the
 classes of mistake LLMs were repeatedly making and adds the telemetry we
 need to keep iterating.
 
@@ -274,7 +281,7 @@ need to keep iterating.
   - Neither DB nor `.lore/` parent exist → refuse with a clear error
     message suggesting `mkdir .lore/` or `lore init`.
 
-  Observed during ns_backoffice_ws testing: the first-run refuse
+  Observed during dogfooding on a Django/Vue project: the first-run refuse
   behavior was the blocker.
 
 ## [0.0.13] — 2026-04-23
@@ -337,7 +344,7 @@ need to keep iterating.
   exits 0 on "no drift" even when there are planned items.
 
 ### Notes
-- Observed in real-world testing (echo_lab_ws): after a Sonnet
+- Observed in real-world testing on a media-pipeline project: after a Sonnet
   bootstrap, 9 flows had `source_ref` values that looked like
   hallucinations but turned out to be genuine forward-looking
   architecture planned but not yet implemented. Marking those
@@ -350,7 +357,7 @@ need to keep iterating.
 - **`/lore:bootstrap` now defaults to Sonnet**, not Haiku, for the
   discovery sub-agent. Bootstrap is infrequent and its output seeds
   every future Lore operation — precision matters more than cost.
-  Observed Haiku runs on real projects (echo_lab_ws) fabricated
+  Observed Haiku runs on real projects fabricated
   `source_ref` values (plausible-looking Django paths that did not
   exist). Sonnet is more conservative. Haiku remains available as
   opt-in via `.lore/config.json → models.exploration: "haiku"`.

@@ -1,6 +1,6 @@
 [project]
 name = "projectlore"
-version = "0.1.1"
+version = "0.1.2"
 description = "The living knowledge graph for your software project — a programmatic MCP-backed graph of business logic, flows, events and rules."
 readme = "README.md"
 license = { text = "MIT" }
