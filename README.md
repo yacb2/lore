@@ -19,6 +19,24 @@ It answers questions like *"how many ways of registering a payment exist?"*, *"w
 - **Auditable** — every node carries `source`, `confidence`, `source_context`. Every MCP call is logged.
 - **Token-efficient** — summary-only listings, batch ops, cheap sub-agents for exploration, WAL-mode SQLite.
 
+## Token economics (measured)
+
+Bytes-on-the-wire to the model when answering structural questions, with vs. without Lore. Reproduce on your machine via `examples/booking-api/` (full protocol in `examples/booking-api/README.md`).
+
+| Project           | Files | Question                                      | Without | With   | Ratio   |
+|-------------------|------:|-----------------------------------------------|--------:|-------:|--------:|
+| `booking-api`     |     5 | How many ways can a Reservation be cancelled? | 6,213 B | 1,485 B|  4.2×   |
+| `booking-api`     |     5 | What rules apply to a Reservation?            | 4,032 B |   291 B| 13.9×   |
+| `booking-api`     |     5 | What does deactivating a Resource affect?     | 4,654 B |   543 B|  8.6×   |
+| `lore` (this repo)|    62 | What capabilities does Lore expose?           |49,726 B |   729 B| 68.2×   |
+| `lore` (this repo)|    62 | Where do graph writes happen?                 |14,566 B |   314 B| 46.4×   |
+
+**Median 13.9×, range 4–68×.** The "without" column is a *floor* — minimum file set, no `Grep`/`Glob` overhead. Real sessions read more. The pattern is clear: ratios grow with project size and how scattered the answer is across the codebase.
+
+**Maintenance cost** (what Claude pays to keep the graph in sync): a typical "new flow + 3 edges" write costs **~720 B** total. Break-even is <1 query per new feature. Reads dominate writes by orders of magnitude.
+
+Caveats: input-payload only (output answer not measured); does not include the one-time `/lore:bootstrap` cost; ratios are descriptive of the questions tested, not a guarantee for arbitrary questions.
+
 ## Install (Claude Code plugin — recommended)
 
 ```

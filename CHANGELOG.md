@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-04-30
+
+### Added
+- `examples/booking-api/` — small FastAPI demo project with seeded graph
+  (`scripts/seed_graph.sql`, 12 nodes / 15 edges) used to reproduce the
+  token-economics A/B on a controlled codebase.
+- `examples/booking-api/demo.tape` — `vhs` script that regenerates the
+  CLI demo GIF from scratch.
+- README: new "Token economics (measured)" section with a five-question
+  benchmark across two repos (median 13.9× input-payload reduction,
+  range 4–68×) and maintenance cost (~720 B per new flow).
+
 ## [0.1.2] — 2026-04-29
 
 ### Changed
