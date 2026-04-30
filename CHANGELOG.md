@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-04-30
+
+### Fixed
+- `examples/booking-api/scripts/seed_graph.sql`: replaced numeric
+  `confidence` values (`0.95`, `0.9`, `1.0`) and the non-canonical
+  `source: 'seed'` with the canonical vocabulary (`high` and `manual`).
+  The seed previously bypassed validation via direct SQL, so writes
+  succeeded but `lore audit` surfaced `non_canonical_*` warnings on
+  every node — a poor pattern for a public example after v0.2.0
+  tightened vocabulary enforcement.
+
 ## [0.2.0] — 2026-04-30
 
 Compliance-discipline release. Targets the failure mode documented in
