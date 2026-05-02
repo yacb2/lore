@@ -11,7 +11,7 @@
       "name": "domaintome",
       "source": "./plugins/domaintome",
       "description": "MCP-backed knowledge graph plugin — auto-invoked skills, `/dt:*` slash commands, and a stdio MCP server.",
-      "version": "0.3.3",
+      "version": "0.3.4",
       "author": { "name": "YACB2" },
       "homepage": "https://github.com/YACB2/domaintome",
       "repository": "https://github.com/YACB2/domaintome",

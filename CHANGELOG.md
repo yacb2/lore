@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] — 2026-05-02
+
+### Changed
+- Release pipeline: added `.github/workflows/release.yml` that builds and publishes to PyPI on every `vX.Y.Z` tag, using OIDC trusted publishing (no stored tokens). Workflow also supports manual re-publish via `workflow_dispatch`. Verifies that `pyproject.toml` version matches the tag before uploading.
+- 0.3.3 was tagged but not published to PyPI; this release supersedes it. The `/dt:*` plugin behavior is unchanged from 0.3.3 — the only change is publishing automation.
+
 ## [0.3.3] — 2026-05-02
 
 ### Changed

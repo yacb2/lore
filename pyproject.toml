@@ -1,6 +1,6 @@
 [project]
 name = "domaintome"
-version = "0.3.3"
+version = "0.3.4"
 description = "DomainTome — the living knowledge graph for your software project. A programmatic MCP-backed graph of business logic, flows, events and rules."
 readme = "README.md"
 license = { text = "MIT" }
