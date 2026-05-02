@@ -54,7 +54,7 @@ Thumbs.db
 uv.lock
 poetry.lock
 
-# Lore local databases & reports
+# DomainTome local databases & reports
 .lore/*.db
 .lore/*.db-journal
 .lore/*.db-wal

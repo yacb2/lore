@@ -1,4 +1,4 @@
--- Seed Lore graph for booking-api demo.
+-- Seed DomainTome graph for booking-api demo.
 -- Captures the four cancellation paths plus the entities and rules they touch.
 
 BEGIN;

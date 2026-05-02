@@ -16,7 +16,7 @@ Sleep 500ms
 Type "# Question: how many ways can a Reservation be cancelled?" Sleep 1s Enter
 Sleep 800ms
 
-Type "# Without Lore an assistant would Glob, Grep and Read 5 files." Enter
+Type "# Without DomainTome an assistant would Glob, Grep and Read 5 files." Enter
 Sleep 600ms
 Type "wc -c app/api.py app/services.py app/rules.py app/models.py scripts/expire_pending.py" Sleep 800ms Enter
 Sleep 2s
@@ -27,7 +27,7 @@ Sleep 1500ms
 Type "clear" Enter
 Sleep 400ms
 
-Type "# With Lore: one query." Sleep 800ms Enter
+Type "# With DomainTome: one query." Sleep 800ms Enter
 Type "lore query cancel" Sleep 600ms Enter
 Sleep 3500ms
 
