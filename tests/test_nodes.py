@@ -6,8 +6,8 @@ import sqlite3
 
 import pytest
 
-from lore.graph import add_node, delete_node, get_node, update_node
-from lore.graph.schema import SchemaError
+from domaintome.graph import add_node, delete_node, get_node, update_node
+from domaintome.graph.schema import SchemaError
 
 
 def test_add_and_get_node(conn):
@@ -121,7 +121,7 @@ def test_delete_node(conn):
 def test_delete_node_reports_lost_edges(conn):
     add_node(conn, node_id="a", type="module", title="A")
     add_node(conn, node_id="b", type="module", title="B")
-    from lore.graph import add_edge
+    from domaintome.graph import add_edge
     add_edge(conn, from_id="a", to_id="b", relation="depends_on")
     assert delete_node(conn, "a") == {"deleted": True, "edges_lost": 1}
 

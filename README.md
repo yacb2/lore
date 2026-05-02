@@ -1,14 +1,14 @@
-# Lore
+# DomainTome
 
 > The living knowledge graph for your software project.
 
-> **Status: pre-1.0, solo-maintained.** Lore is functional and used in
+> **Status: pre-1.0, solo-maintained.** DomainTome is functional and used in
 > production projects, but the API, the schema and the MCP surface may
 > still break between minor versions. Bug reports are welcome; feature
 > PRs may not be merged while the design stabilizes. The repository will
 > open up to broader collaboration once the API is stable (target: 1.0).
 
-**Lore** captures the business logic of a project — modules, capabilities, flows, events, rules, forms, entities and decisions — as a typed graph backed by SQLite, and exposes it over **MCP** so AI coding assistants (Claude Code, Claude Desktop) can query and maintain it as part of normal work.
+**DomainTome** captures the business logic of a project — modules, capabilities, flows, events, rules, forms, entities and decisions — as a typed graph backed by SQLite, and exposes it over **MCP** so AI coding assistants (Claude Code, Claude Desktop) can query and maintain it as part of normal work.
 
 It answers questions like *"how many ways of registering a payment exist?"*, *"what breaks if I touch `flow-checkout`?"* or *"which rules protect this entity?"* in a single tool call, with provenance, without re-exploring the codebase each time.
 
@@ -21,43 +21,43 @@ It answers questions like *"how many ways of registering a payment exist?"*, *"w
 
 ## Token economics (measured)
 
-Bytes-on-the-wire to the model when answering structural questions, with vs. without Lore. Reproduce on your machine via `examples/booking-api/` (full protocol in `examples/booking-api/README.md`).
+Bytes-on-the-wire to the model when answering structural questions, with vs. without DomainTome. Reproduce on your machine via `examples/booking-api/` (full protocol in `examples/booking-api/README.md`).
 
-| Project           | Files | Question                                      | Without | With   | Ratio   |
-|-------------------|------:|-----------------------------------------------|--------:|-------:|--------:|
-| `booking-api`     |     5 | How many ways can a Reservation be cancelled? | 6,213 B | 1,485 B|  4.2×   |
-| `booking-api`     |     5 | What rules apply to a Reservation?            | 4,032 B |   291 B| 13.9×   |
-| `booking-api`     |     5 | What does deactivating a Resource affect?     | 4,654 B |   543 B|  8.6×   |
-| `lore` (this repo)|    62 | What capabilities does Lore expose?           |49,726 B |   729 B| 68.2×   |
-| `lore` (this repo)|    62 | Where do graph writes happen?                 |14,566 B |   314 B| 46.4×   |
+| Project                | Files | Question                                            | Without | With   | Ratio   |
+|------------------------|------:|-----------------------------------------------------|--------:|-------:|--------:|
+| `booking-api`          |     5 | How many ways can a Reservation be cancelled?       | 6,213 B | 1,485 B|  4.2×   |
+| `booking-api`          |     5 | What rules apply to a Reservation?                  | 4,032 B |   291 B| 13.9×   |
+| `booking-api`          |     5 | What does deactivating a Resource affect?           | 4,654 B |   543 B|  8.6×   |
+| `domaintome` (this repo)|   62 | What capabilities does DomainTome expose?           |49,726 B |   729 B| 68.2×   |
+| `domaintome` (this repo)|   62 | Where do graph writes happen?                       |14,566 B |   314 B| 46.4×   |
 
 **Median 13.9×, range 4–68×.** The "without" column is a *floor* — minimum file set, no `Grep`/`Glob` overhead. Real sessions read more. The pattern is clear: ratios grow with project size and how scattered the answer is across the codebase.
 
 **Maintenance cost** (what Claude pays to keep the graph in sync): a typical "new flow + 3 edges" write costs **~720 B** total. Break-even is <1 query per new feature. Reads dominate writes by orders of magnitude.
 
-Caveats: input-payload only (output answer not measured); does not include the one-time `/lore:bootstrap` cost; ratios are descriptive of the questions tested, not a guarantee for arbitrary questions.
+Caveats: input-payload only (output answer not measured); does not include the one-time `/dt:bootstrap` cost; ratios are descriptive of the questions tested, not a guarantee for arbitrary questions.
 
 ## Install (Claude Code plugin — recommended)
 
 ```
-/plugin marketplace add YACB2/lore
-/plugin install lore@lore
+/plugin marketplace add YACB2/domaintome
+/plugin install domaintome@domaintome
 ```
 
-Reload, then from the project you want to model run `lore init` (or `/lore:bootstrap` for a guided onboarding that scans the code with Haiku). "Project" can be a single repo *or* a workspace that contains several repos — Lore has no opinion, `.lore/lore.db` is created relative to whatever directory you launched Claude Code from.
+Reload, then from the project you want to model run `dt init` (or `/dt:bootstrap` for a guided onboarding that scans the code with Haiku). "Project" can be a single repo *or* a workspace that contains several repos — DomainTome has no opinion, `.dt/graph.db` is created relative to whatever directory you launched Claude Code from.
 
 The plugin bundles:
 
-- **MCP server** exposing `lore_add_node`, `lore_add_nodes`, `lore_update_node`, `lore_delete_node`, `lore_get_node`, `lore_add_edge`, `lore_add_edges`, `lore_remove_edge`, `lore_query`, `lore_traverse`, `lore_list`, `lore_find_variants`, `lore_audit`, `lore_history`, `lore_stats`, `lore_export_markdown`.
-- **Auto-invoked skill** (`lore-usage`) that tells Claude to read before acting and write on decision, with provenance rules and lifecycle conventions.
-- **Sub-agent `lore-explorer`** (Haiku, read-only) for broad exploration without burning expensive tokens.
-- **Slash commands**: `/lore:init`, `/lore:bootstrap`, `/lore:audit`, `/lore:show <id>`, `/lore:recent`, `/lore:impact <id>`, `/lore:probe <path>` (audit another project's graph without switching directory).
+- **MCP server** exposing `dt_add_node`, `dt_add_nodes`, `dt_update_node`, `dt_delete_node`, `dt_get_node`, `dt_add_edge`, `dt_add_edges`, `dt_remove_edge`, `dt_query`, `dt_traverse`, `dt_list`, `dt_find_variants`, `dt_audit`, `dt_history`, `dt_stats`, `dt_export_markdown`.
+- **Auto-invoked skill** (`dt-usage`) that tells Claude to read before acting and write on decision, with provenance rules and lifecycle conventions.
+- **Sub-agent `dt-explorer`** (Haiku, read-only) for broad exploration without burning expensive tokens.
+- **Slash commands**: `/dt:init`, `/dt:bootstrap`, `/dt:audit`, `/dt:show <id>`, `/dt:recent`, `/dt:impact <id>`, `/dt:probe <path>` (audit another project's graph without switching directory).
 
 ## Install (standalone CLI / other MCP hosts)
 
 ```bash
-pipx install projectlore   # or: uv tool install projectlore
-lore init
+pipx install domaintome   # or: uv tool install domaintome
+dt init
 ```
 
 For Claude Desktop / other MCP hosts:
@@ -65,9 +65,9 @@ For Claude Desktop / other MCP hosts:
 ```json
 {
   "mcpServers": {
-    "lore": {
-      "command": "lore",
-      "args": ["mcp", "--db", ".lore/lore.db"]
+    "dt": {
+      "command": "dt",
+      "args": ["mcp", "--db", ".dt/graph.db"]
     }
   }
 }
@@ -76,14 +76,14 @@ For Claude Desktop / other MCP hosts:
 ## CLI reference
 
 ```bash
-lore init                      # create .lore/lore.db
-lore list [--type flow]        # summary listing (id, type, title, status)
-lore show <id>                 # full detail + edges
-lore query "payment"           # exact id → title substring → tag fallback
-lore variants <capability-id>  # flows implementing a capability
-lore audit                     # orphans, cycles, id hygiene
-lore stats [--since ISO]       # token/usage analytics from the audit log
-lore export --out .lore/export # one markdown file per node
+dt init                      # create .dt/graph.db
+dt list [--type flow]        # summary listing (id, type, title, status)
+dt show <id>                 # full detail + edges
+dt query "payment"           # exact id → title substring → tag fallback
+dt variants <capability-id>  # flows implementing a capability
+dt audit                     # orphans, cycles, id hygiene
+dt stats [--since ISO]       # token/usage analytics from the audit log
+dt export --out .dt/export   # one markdown file per node
 ```
 
 ## Schema
@@ -92,7 +92,7 @@ lore export --out .lore/export # one markdown file per node
 
 **Nine relations**: `part_of`, `implements`, `depends_on`, `triggers`, `validates`, `enforces`, `supersedes`, `references`, `conflicts_with`. Type pairs are restricted (see `schema.py`).
 
-**Statuses**: `active | draft | deprecated | superseded | archived`. Soft-delete is the default; `lore_delete_node` is reserved for typos and warns about edge loss.
+**Statuses**: `active | draft | deprecated | superseded | archived`. Soft-delete is the default; `dt_delete_node` is reserved for typos and warns about edge loss.
 
 The central abstraction is **`capability`** — a thing the system knows how to do, independent of how. Multiple `flow` nodes can `implements` the same capability, surfacing UX/logic divergences.
 
@@ -100,10 +100,10 @@ The central abstraction is **`capability`** — a thing the system knows how to 
 
 Operations are split by cost:
 
-- **Reads** (broad scans, traversals, audits): delegated to Haiku via the `lore-explorer` sub-agent or `model: haiku` frontmatter on slash commands.
+- **Reads** (broad scans, traversals, audits): delegated to Haiku via the `dt-explorer` sub-agent or `model: haiku` frontmatter on slash commands.
 - **Writes & modeling decisions**: caller's model (Sonnet/Opus). A sub-agent proposes JSON; the caller reviews and persists.
 
-Override per-project in `.lore/config.json`:
+Override per-project in `.dt/config.json`:
 
 ```json
 {
@@ -117,9 +117,9 @@ Override per-project in `.lore/config.json`:
 
 Every node carries `metadata.{source, confidence, source_context}` and, when relevant, `source_ref` (`path:line`), `last_verified_at`, `deprecated_at`, `deprecated_reason`, `replaced_by`.
 
-`lore_update_node(metadata_patch=…)` merges without destroying provenance; `metadata` still exists for rare full replacements.
+`dt_update_node(metadata_patch=…)` merges without destroying provenance; `metadata` still exists for rare full replacements.
 
-`lore_history(id)` returns every MCP event for a node (newest first) from the append-only audit log. `lore_stats` aggregates by tool/op and reports input/output bytes.
+`dt_history(id)` returns every MCP event for a node (newest first) from the append-only audit log. `dt_stats` aggregates by tool/op and reports input/output bytes.
 
 ## Status
 

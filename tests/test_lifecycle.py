@@ -1,4 +1,4 @@
-"""Tests for lore.lifecycle — reconcile drift detection."""
+"""Tests for domaintome.lifecycle — reconcile drift detection."""
 
 from __future__ import annotations
 
@@ -8,14 +8,14 @@ from pathlib import Path
 
 import pytest
 
-from lore.graph import add_node, open_db
-from lore.lifecycle import reconcile
+from domaintome.graph import add_node, open_db
+from domaintome.lifecycle import reconcile
 
 
 @pytest.fixture
 def project_root(tmp_path: Path) -> Path:
-    """Fake project root with a .lore/ subdir and some source files."""
-    (tmp_path / ".lore").mkdir()
+    """Fake project root with a .dt/ subdir and some source files."""
+    (tmp_path / ".dt").mkdir()
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "foo.py").write_text("# alive\n")
     return tmp_path
@@ -23,7 +23,7 @@ def project_root(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def conn(project_root: Path):
-    conn = open_db(project_root / ".lore" / "lore.db")
+    conn = open_db(project_root / ".dt" / "graph.db")
     yield conn
     conn.close()
 

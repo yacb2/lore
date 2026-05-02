@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from lore.graph import add_edges_batch, add_nodes_batch
-from lore.graph.schema import SchemaError
+from domaintome.graph import add_edges_batch, add_nodes_batch
+from domaintome.graph.schema import SchemaError
 
 
 def test_add_nodes_batch_inserts_all(conn):

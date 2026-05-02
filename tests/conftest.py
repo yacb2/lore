@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from lore.graph import add_edge, add_node, open_db
+from domaintome.graph import add_edge, add_node, open_db
 
 
 @pytest.fixture()
 def conn():
-    """In-memory SQLite database with Lore schema applied."""
+    """In-memory SQLite database with DomainTome schema applied."""
     c = open_db(":memory:")
     yield c
     c.close()

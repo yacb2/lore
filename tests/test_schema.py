@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from lore.graph.schema import (
+from domaintome.graph.schema import (
     SchemaError,
     is_relation_allowed,
     is_valid_id,

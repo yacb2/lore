@@ -23,7 +23,7 @@ Run:
 
     uv run python examples/stress/build_large_graph.py
 
-Writes .lore/stress.db (overwritten on each run).
+Writes .dt/stress.db (overwritten on each run).
 """
 
 from __future__ import annotations
@@ -32,10 +32,10 @@ import random
 import sqlite3
 from pathlib import Path
 
-from lore.graph import add_edge, add_node, open_db
-from lore.graph.schema import ALLOWED_RELATIONS
+from domaintome.graph import add_edge, add_node, open_db
+from domaintome.graph.schema import ALLOWED_RELATIONS
 
-DB_PATH = Path(".lore") / "stress.db"
+DB_PATH = Path(".dt") / "stress.db"
 
 random.seed(42)  # reproducible
 

@@ -1,20 +1,20 @@
 {
-  "name": "lore",
+  "name": "domaintome",
   "owner": {
     "name": "YACB2"
   },
   "metadata": {
-    "description": "Lore — living knowledge graph for software projects"
+    "description": "DomainTome — living knowledge graph for software projects"
   },
   "plugins": [
     {
-      "name": "lore",
-      "source": "./plugins/lore",
-      "description": "MCP-backed knowledge graph plugin — auto-invoked skills, slash commands, and a stdio MCP server.",
-      "version": "0.2.3",
+      "name": "domaintome",
+      "source": "./plugins/domaintome",
+      "description": "MCP-backed knowledge graph plugin — auto-invoked skills, `/dt:*` slash commands, and a stdio MCP server.",
+      "version": "0.3.0",
       "author": { "name": "YACB2" },
-      "homepage": "https://github.com/YACB2/lore",
-      "repository": "https://github.com/YACB2/lore",
+      "homepage": "https://github.com/YACB2/domaintome",
+      "repository": "https://github.com/YACB2/domaintome",
       "license": "MIT",
       "keywords": ["knowledge-graph", "mcp", "documentation", "domain-model"]
     }

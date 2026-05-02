@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typer.testing import CliRunner
 
-from lore.cli import app
-from lore.graph import add_edge, add_node, open_db
+from domaintome.cli import app
+from domaintome.graph import add_edge, add_node, open_db
 
 runner = CliRunner()
 
@@ -22,21 +22,21 @@ def _seed(db_path):
 
 
 def test_init_creates_db(tmp_path):
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     result = runner.invoke(app, ["init", "--db", str(db)])
     assert result.exit_code == 0
     assert db.exists()
 
 
 def test_init_fails_if_exists(tmp_path):
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     runner.invoke(app, ["init", "--db", str(db)])
     result = runner.invoke(app, ["init", "--db", str(db)])
     assert result.exit_code == 1
 
 
 def test_list_empty(tmp_path):
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     open_db(db).close()
     result = runner.invoke(app, ["list", "--db", str(db)])
     assert result.exit_code == 0
@@ -44,7 +44,7 @@ def test_list_empty(tmp_path):
 
 
 def test_list_shows_nodes(tmp_path):
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     result = runner.invoke(app, ["list", "--db", str(db)])
     assert "pay-flow" in result.output
@@ -52,7 +52,7 @@ def test_list_shows_nodes(tmp_path):
 
 
 def test_show_node(tmp_path):
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     result = runner.invoke(app, ["show", "pay-flow", "--db", str(db)])
     assert result.exit_code == 0
@@ -61,14 +61,14 @@ def test_show_node(tmp_path):
 
 
 def test_show_missing(tmp_path):
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     open_db(db).close()
     result = runner.invoke(app, ["show", "ghost", "--db", str(db)])
     assert result.exit_code == 1
 
 
 def test_query(tmp_path):
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     result = runner.invoke(app, ["query", "Pay", "--db", str(db)])
     assert result.exit_code == 0
@@ -76,7 +76,7 @@ def test_query(tmp_path):
 
 
 def test_variants(tmp_path):
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     result = runner.invoke(app, ["variants", "pay-cap", "--db", str(db)])
     assert result.exit_code == 0
@@ -84,7 +84,7 @@ def test_variants(tmp_path):
 
 
 def test_audit_clean(tmp_path):
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     result = runner.invoke(app, ["audit", "--db", str(db)])
     assert result.exit_code == 0
@@ -92,7 +92,7 @@ def test_audit_clean(tmp_path):
 
 
 def test_read_commands_refuse_missing_db(tmp_path):
-    missing = tmp_path / "nope" / "lore.db"
+    missing = tmp_path / "nope" / "graph.db"
     for cmd in (["list"], ["audit"], ["stats"], ["query", "x"]):
         result = runner.invoke(app, [*cmd, "--db", str(missing)])
         assert result.exit_code == 1, f"{cmd} should fail on missing DB"
@@ -105,7 +105,7 @@ def test_install_hooks_creates_post_commit(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
 
     result = runner.invoke(
@@ -117,7 +117,7 @@ def test_install_hooks_creates_post_commit(tmp_path):
     assert hook.stat().st_mode & 0o111, "hook must be executable"
     content = hook.read_text()
     assert str(db.resolve()) in content
-    assert "lore reconcile" in content
+    assert "dt reconcile" in content
 
 
 def test_hook_session_start_suggests_init_when_no_db_in_project(tmp_path):
@@ -127,20 +127,20 @@ def test_hook_session_start_suggests_init_when_no_db_in_project(tmp_path):
     project = tmp_path / "proj"
     project.mkdir()
     (project / "pyproject.toml").write_text('[project]\nname="x"\n')
-    db = project / ".lore" / "lore.db"
+    db = project / ".dt" / "graph.db"
     result = runner.invoke(app, ["hook-session-start", "--db", str(db)])
     assert result.exit_code == 0, result.output
     payload = _json.loads(result.output)
     ctx = payload["hookSpecificOutput"]["additionalContext"]
-    assert "/lore:init" in ctx
-    assert "no Lore graph exists" in ctx
+    assert "/dt:init" in ctx
+    assert "no DomainTome graph exists" in ctx
 
 
 def test_hook_session_start_is_silent_outside_a_project(tmp_path):
     import json as _json
 
     # tmp_path has no project markers.
-    db = tmp_path / ".lore" / "lore.db"
+    db = tmp_path / ".dt" / "graph.db"
     result = runner.invoke(app, ["hook-session-start", "--db", str(db)])
     assert result.exit_code == 0
     payload = _json.loads(result.output)
@@ -152,35 +152,35 @@ def test_hook_session_start_is_silent_outside_a_project(tmp_path):
 def test_hook_session_start_notes_empty_graph(tmp_path):
     import json as _json
 
-    db = tmp_path / "lore.db"
-    from lore.graph import open_db as _open
+    db = tmp_path / "graph.db"
+    from domaintome.graph import open_db as _open
     _open(db).close()  # materialize empty DB
     result = runner.invoke(app, ["hook-session-start", "--db", str(db)])
     assert result.exit_code == 0
     payload = _json.loads(result.output)
     assert "empty" in payload["hookSpecificOutput"]["additionalContext"].lower()
-    assert "/lore:init" in payload["hookSpecificOutput"]["additionalContext"]
+    assert "/dt:init" in payload["hookSpecificOutput"]["additionalContext"]
 
 
 def test_hook_session_start_injects_operating_directive_when_populated(tmp_path):
     import json as _json
 
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     result = runner.invoke(app, ["hook-session-start", "--db", str(db)])
     assert result.exit_code == 0, result.output
     ctx = _json.loads(result.output)["hookSpecificOutput"]["additionalContext"]
     # Must mention the MCP tools and the operating rules — this is the
     # whole point of nudging the model every session.
-    assert "lore_query" in ctx
-    assert "lore_add_node" in ctx or "lore_add_edge" in ctx
-    assert "lore-usage" in ctx
+    assert "dt_query" in ctx
+    assert "dt_add_node" in ctx or "dt_add_edge" in ctx
+    assert "dt-usage" in ctx
 
 
 def test_hook_post_tool_use_silent_for_non_bash_tool(tmp_path):
     import json as _json
 
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     payload = _json.dumps({"tool_name": "Edit", "tool_input": {}})
     result = runner.invoke(
@@ -193,7 +193,7 @@ def test_hook_post_tool_use_silent_for_non_bash_tool(tmp_path):
 def test_hook_post_tool_use_silent_when_command_is_not_git_commit(tmp_path):
     import json as _json
 
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     payload = _json.dumps(
         {"tool_name": "Bash", "tool_input": {"command": "ls -la"}}
@@ -208,7 +208,7 @@ def test_hook_post_tool_use_silent_when_command_is_not_git_commit(tmp_path):
 def test_hook_post_tool_use_nudges_on_edit_to_mapped_path(tmp_path):
     import json as _json
 
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     conn = open_db(db)
     add_node(
         conn,
@@ -229,13 +229,13 @@ def test_hook_post_tool_use_nudges_on_edit_to_mapped_path(tmp_path):
     assert result.exit_code == 0, result.output
     ctx = _json.loads(result.output)["hookSpecificOutput"]["additionalContext"]
     assert "video-model" in ctx
-    assert "lore_update_node" in ctx
+    assert "dt_update_node" in ctx
 
 
 def test_hook_post_tool_use_silent_on_edit_to_unmapped_path(tmp_path):
     import json as _json
 
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     conn = open_db(db)
     add_node(
         conn,
@@ -262,7 +262,7 @@ def test_hook_post_tool_use_silent_on_edit_to_unmapped_path(tmp_path):
 def test_hook_post_tool_use_nudges_on_write_and_multiedit(tmp_path):
     import json as _json
 
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     conn = open_db(db)
     add_node(
         conn,
@@ -291,7 +291,7 @@ def test_hook_post_tool_use_nudges_on_write_and_multiedit(tmp_path):
 def test_hook_post_tool_use_nudges_unmapped_edit_with_business_signal(tmp_path):
     import json as _json
 
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     payload = _json.dumps(
         {
@@ -313,13 +313,13 @@ def test_hook_post_tool_use_nudges_unmapped_edit_with_business_signal(tmp_path):
     assert result.exit_code == 0, result.output
     ctx = _json.loads(result.output)["hookSpecificOutput"]["additionalContext"]
     assert "looks like new behavior" in ctx
-    assert "lore_add_node" in ctx
+    assert "dt_add_node" in ctx
 
 
 def test_hook_post_tool_use_silent_for_unmapped_edit_without_signal(tmp_path):
     import json as _json
 
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     payload = _json.dumps(
         {
@@ -341,7 +341,7 @@ def test_hook_post_tool_use_silent_for_unmapped_edit_without_signal(tmp_path):
 def test_hook_post_tool_use_silent_for_test_file_even_with_signal(tmp_path):
     import json as _json
 
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     payload = _json.dumps(
         {
@@ -363,7 +363,7 @@ def test_hook_post_tool_use_silent_for_test_file_even_with_signal(tmp_path):
 def test_hook_post_tool_use_silent_for_boring_path(tmp_path):
     import json as _json
 
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     payload = _json.dumps(
         {
@@ -397,14 +397,14 @@ def test_hook_post_tool_use_silent_when_db_missing(tmp_path):
 
 def test_verify_updates_last_verified_at(tmp_path):
 
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     result = runner.invoke(app, ["verify", "pay-flow", "--db", str(db)])
     assert result.exit_code == 0, result.output
     assert "last_verified_at=" in result.output
 
-    from lore.graph import get_node
-    from lore.graph import open_db as _open
+    from domaintome.graph import get_node
+    from domaintome.graph import open_db as _open
     conn = _open(db)
     node = get_node(conn, "pay-flow")
     assert node is not None
@@ -414,7 +414,7 @@ def test_verify_updates_last_verified_at(tmp_path):
 
 
 def test_verify_unknown_node_fails(tmp_path):
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     result = runner.invoke(app, ["verify", "ghost", "--db", str(db)])
     assert result.exit_code == 1
@@ -423,7 +423,7 @@ def test_verify_unknown_node_fails(tmp_path):
 def test_install_hooks_refuses_non_git(tmp_path):
     not_a_repo = tmp_path / "plain"
     not_a_repo.mkdir()
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     result = runner.invoke(
         app, ["install-hooks", "--repo", str(not_a_repo), "--db", str(db)]
@@ -441,7 +441,7 @@ def test_install_hooks_refuses_to_clobber(tmp_path):
     (repo / ".git" / "hooks").mkdir(exist_ok=True)
     existing = repo / ".git" / "hooks" / "post-commit"
     existing.write_text("#!/bin/sh\necho custom\n")
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     result = runner.invoke(
         app, ["install-hooks", "--repo", str(repo), "--db", str(db)]
@@ -456,11 +456,11 @@ def test_install_hooks_refuses_to_clobber(tmp_path):
         app, ["install-hooks", "--repo", str(repo), "--db", str(db), "--force"]
     )
     assert result2.exit_code == 0
-    assert "lore reconcile" in existing.read_text()
+    assert "dt reconcile" in existing.read_text()
 
 
 def test_export(tmp_path):
-    db = tmp_path / "lore.db"
+    db = tmp_path / "graph.db"
     _seed(db)
     out = tmp_path / "export"
     result = runner.invoke(app, ["export", "--db", str(db), "--out", str(out)])

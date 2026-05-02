@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lore.graph import (
+from domaintome.graph import (
     add_edge,
     add_node,
     audit,

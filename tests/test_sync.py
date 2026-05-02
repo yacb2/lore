@@ -1,4 +1,4 @@
-"""Tests for the sync report and the `lore sync-plan` CLI command."""
+"""Tests for the sync report and the `dt sync-plan` CLI command."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from lore.cli import app
-from lore.graph import add_node, open_db
-from lore.sync import (
+from domaintome.cli import app
+from domaintome.graph import add_node, open_db
+from domaintome.sync import (
     BORING_SUFFIXES,
     compute_sync_report,
     find_git_repos,
@@ -81,7 +81,7 @@ def test_compute_sync_report_splits_mapped_and_unmapped(tmp_path):
     _commit_file(tmp_path, "src/people/commands/cleanup.py")  # unmapped
     _commit_file(tmp_path, "frontend/styles.css")  # boring
 
-    db = tmp_path / ".lore" / "lore.db"
+    db = tmp_path / ".dt" / "graph.db"
     conn = open_db(db)
     add_node(
         conn,
@@ -115,7 +115,7 @@ def test_compute_sync_report_walks_workspace_with_two_repos(tmp_path):
     _commit_file(backend, "people/views.py")
     _commit_file(frontend, "src/pages/People.vue")
 
-    db = tmp_path / ".lore" / "lore.db"
+    db = tmp_path / ".dt" / "graph.db"
     conn = open_db(db)
     # Map only the backend file. The frontend page is unmapped.
     add_node(
@@ -137,7 +137,7 @@ def test_compute_sync_report_walks_workspace_with_two_repos(tmp_path):
 
 
 def test_compute_sync_report_returns_empty_when_no_repos(tmp_path):
-    db = tmp_path / ".lore" / "lore.db"
+    db = tmp_path / ".dt" / "graph.db"
     conn = open_db(db)
     report = compute_sync_report(conn, tmp_path)
     assert report["repos"] == []
@@ -148,7 +148,7 @@ def test_compute_sync_report_returns_empty_when_no_repos(tmp_path):
 def test_sync_plan_cli_emits_json_and_exits_one_when_unmapped(tmp_path, monkeypatch):
     _init_repo(tmp_path)
     _commit_file(tmp_path, "src/foo.py")
-    db = tmp_path / ".lore" / "lore.db"
+    db = tmp_path / ".dt" / "graph.db"
     open_db(db).close()  # empty graph: every changed file is unmapped
 
     monkeypatch.chdir(tmp_path)
@@ -166,7 +166,7 @@ def test_sync_plan_cli_exits_zero_when_all_mapped(tmp_path, monkeypatch):
     _init_repo(tmp_path)
     _commit_file(tmp_path, "src/foo.py")
 
-    db = tmp_path / ".lore" / "lore.db"
+    db = tmp_path / ".dt" / "graph.db"
     conn = open_db(db)
     add_node(
         conn,

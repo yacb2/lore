@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lore.export import export_markdown
+from domaintome.export import export_markdown
 
 
 def test_export_writes_file_per_node(seeded_conn, tmp_path):
@@ -19,7 +19,7 @@ def test_export_writes_file_per_node(seeded_conn, tmp_path):
 
 
 def test_export_includes_tags(conn, tmp_path):
-    from lore.graph import add_node
+    from domaintome.graph import add_node
 
     add_node(
         conn,

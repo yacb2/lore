@@ -14,7 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from lore.graph import (
+from domaintome.graph import (
     audit,
     find_variants,
     list_edges,
@@ -23,7 +23,7 @@ from lore.graph import (
     traverse,
 )
 
-DB_PATH = Path(".lore") / "lore.db"
+DB_PATH = Path(".dt") / "graph.db"
 
 GREEN = "\033[32m"
 RED = "\033[31m"
@@ -329,8 +329,8 @@ def main() -> int:
 
     # Schema rejects forbidden edge types
     def neg_invalid_edge() -> str:
-        from lore.graph import add_edge as _ae
-        from lore.graph.schema import SchemaError
+        from domaintome.graph import add_edge as _ae
+        from domaintome.graph.schema import SchemaError
 
         try:
             _ae(
@@ -354,10 +354,10 @@ def main() -> int:
 
     # Supersedes cycle detection using a temporary in-memory DB
     def neg_cycle() -> list:
-        from lore.graph import add_edge as _ae
-        from lore.graph import add_node as _an
-        from lore.graph import audit as _audit
-        from lore.graph import open_db as _open
+        from domaintome.graph import add_edge as _ae
+        from domaintome.graph import add_node as _an
+        from domaintome.graph import audit as _audit
+        from domaintome.graph import open_db as _open
 
         c = _open(":memory:")
         _an(c, node_id="a", type="flow", title="A")
@@ -379,7 +379,7 @@ def main() -> int:
 
     # Markdown export round-trip
     def export_check() -> int:
-        from lore.export import export_markdown
+        from domaintome.export import export_markdown
 
         out = DB_PATH.parent / "export"
         written = export_markdown(conn, out)

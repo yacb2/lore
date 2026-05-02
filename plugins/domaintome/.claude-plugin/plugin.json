@@ -1,0 +1,7 @@
+{
+  "name": "domaintome",
+  "version": "0.3.0",
+  "description": "DomainTome — living knowledge graph for software projects. Bundles the MCP server, auto-invoked read/write skills, and `/dt:*` slash commands for explicit graph operations.",
+  "homepage": "https://github.com/YACB2/domaintome",
+  "license": "MIT"
+}

@@ -6,8 +6,8 @@ import sqlite3
 
 import pytest
 
-from lore.graph import add_edge, add_node, delete_node, list_edges, remove_edge
-from lore.graph.schema import SchemaError
+from domaintome.graph import add_edge, add_node, delete_node, list_edges, remove_edge
+from domaintome.graph.schema import SchemaError
 
 
 def test_add_edge_valid(conn):

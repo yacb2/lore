@@ -1,7 +1,7 @@
 """Tests for v0.1.0 audit-driven improvements:
 - richer SchemaError messages (A1, A6)
 - soft body/source/orphan warnings (A3, A4, A5)
-- lore_schema descriptor (A2)
+- dt_schema descriptor (A2)
 - minimal MCP response shape (A7)
 - audit_log telemetry (B1)
 - quality report + by-day stats (B2, B3)
@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import pytest
 
-from lore.graph import add_edge, add_node, add_nodes_batch, open_db
-from lore.graph.quality import (
+from domaintome.graph import add_edge, add_node, add_nodes_batch, open_db
+from domaintome.graph.quality import (
     errors_breakdown,
     quality_report,
     stats_by_day,
 )
-from lore.graph.schema import SchemaError, schema_descriptor, validate_edge_types
+from domaintome.graph.schema import SchemaError, schema_descriptor, validate_edge_types
 
 
 # A1 — SchemaError shows the relations valid for the specific pair.
@@ -42,7 +42,7 @@ def test_schema_error_lists_valid_relations_when_pair_has_options():
 
 # A6 — invalid id mentions bad chars and proposes a fix.
 def test_invalid_id_message_suggests_kebab():
-    from lore.graph.schema import validate_id
+    from domaintome.graph.schema import validate_id
 
     with pytest.raises(SchemaError) as exc:
         validate_id("module.frontend.x")
@@ -180,7 +180,7 @@ def test_quality_report_basic():
     # these so users can clean them up.
     import json as _json
 
-    from lore.graph._common import now_iso
+    from domaintome.graph._common import now_iso
     legacy_meta = _json.dumps({"source": "auto_scan"})
     conn.execute(
         "INSERT INTO nodes (id, type, title, body, status, metadata_json, "
@@ -204,8 +204,8 @@ def test_stats_by_day_returns_rows_when_audit_log_has_data():
     conn.execute(
         """INSERT INTO audit_log
            (timestamp, tool, op, input_bytes, output_bytes, warnings_count, error)
-           VALUES ('2026-04-29T10:00:00Z', 'lore_add_node', 'create', 100, 50, 1, NULL),
-                  ('2026-04-29T11:00:00Z', 'lore_add_edge', 'create', 80, 20, 0,
+           VALUES ('2026-04-29T10:00:00Z', 'dt_add_node', 'create', 100, 50, 1, NULL),
+                  ('2026-04-29T11:00:00Z', 'dt_add_edge', 'create', 80, 20, 0,
                    'SchemaError: bad relation')"""
     )
     conn.commit()

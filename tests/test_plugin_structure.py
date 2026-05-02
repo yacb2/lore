@@ -15,7 +15,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MARKETPLACE = REPO_ROOT / ".claude-plugin" / "marketplace.json"
-PLUGIN_DIR = REPO_ROOT / "plugins" / "lore"
+PLUGIN_DIR = REPO_ROOT / "plugins" / "domaintome"
 PLUGIN_MANIFEST = PLUGIN_DIR / ".claude-plugin" / "plugin.json"
 MCP_MANIFEST = PLUGIN_DIR / ".mcp.json"
 SKILLS_DIR = PLUGIN_DIR / "skills"
@@ -40,7 +40,7 @@ def _parse_frontmatter(path: Path) -> dict[str, str]:
 
 def test_marketplace_manifest_has_required_fields() -> None:
     data = json.loads(MARKETPLACE.read_text())
-    assert data["name"] == "lore"
+    assert data["name"] == "domaintome"
     assert data["owner"]["name"], "owner.name is required"
     assert "url" not in data["owner"], "owner.url is not a valid field"
     assert isinstance(data["plugins"], list) and data["plugins"], "plugins[] required"
@@ -51,7 +51,7 @@ def test_marketplace_manifest_has_required_fields() -> None:
 
 def test_plugin_manifest_has_required_fields() -> None:
     data = json.loads(PLUGIN_MANIFEST.read_text())
-    assert data["name"] == "lore"
+    assert data["name"] == "domaintome"
     assert data["version"], "version required — bump on every release"
     assert data["description"]
 
@@ -59,8 +59,8 @@ def test_plugin_manifest_has_required_fields() -> None:
 def test_mcp_manifest_is_valid() -> None:
     data = json.loads(MCP_MANIFEST.read_text())
     assert "mcpServers" in data
-    assert "lore" in data["mcpServers"]
-    server = data["mcpServers"]["lore"]
+    assert "dt" in data["mcpServers"]
+    server = data["mcpServers"]["dt"]
     assert server["command"], "command is required"
     assert isinstance(server.get("args", []), list)
 
@@ -104,8 +104,8 @@ def test_expected_plugin_files_present() -> None:
     expected = [
         PLUGIN_MANIFEST,
         MCP_MANIFEST,
-        SKILLS_DIR / "lore-usage" / "SKILL.md",
-        SKILLS_DIR / "lore-commit" / "SKILL.md",
+        SKILLS_DIR / "dt-usage" / "SKILL.md",
+        SKILLS_DIR / "dt-commit" / "SKILL.md",
         COMMANDS_DIR / "init.md",
         COMMANDS_DIR / "audit.md",
         COMMANDS_DIR / "show.md",
@@ -134,9 +134,9 @@ def test_hooks_json_has_session_start() -> None:
     inner = session_start[0].get("hooks", [])
     assert any(
         h.get("type") == "command"
-        and "lore hook-session-start" in h.get("command", "")
+        and "dt hook-session-start" in h.get("command", "")
         for h in inner
-    ), "SessionStart must invoke `lore hook-session-start`"
+    ), "SessionStart must invoke `dt hook-session-start`"
 
 
 def test_hooks_json_has_post_tool_use_for_bash() -> None:
@@ -162,6 +162,6 @@ def test_hooks_json_has_post_tool_use_for_bash() -> None:
     )
     assert any(
         h.get("type") == "command"
-        and "lore hook-post-tool-use" in h.get("command", "")
+        and "dt hook-post-tool-use" in h.get("command", "")
         for h in entry.get("hooks", [])
-    ), "PostToolUse must invoke `lore hook-post-tool-use`"
+    ), "PostToolUse must invoke `dt hook-post-tool-use`"

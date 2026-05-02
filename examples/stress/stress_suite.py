@@ -1,9 +1,9 @@
-"""Stress & gap suite for Lore.
+"""Stress & gap suite for DomainTome.
 
 Three axes:
   1. Performance at scale (timing core queries on a 1k-node graph)
   2. Correctness edge cases (idempotency, cascades, cycles, unicode, …)
-  3. Product gaps — questions a real team WOULD ask that Lore cannot answer
+  3. Product gaps — questions a real team WOULD ask that DomainTome cannot answer
      cleanly today. Recorded as findings, not failures.
 
 Run:
@@ -12,7 +12,7 @@ Run:
     uv run python examples/stress/stress_suite.py
 
 Writes a human-readable report to stdout and saves the structured findings to
-`.lore/stress_report.json`.
+`.dt/stress_report.json`.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-from lore.graph import (
+from domaintome.graph import (
     add_edge,
     add_node,
     audit,
@@ -37,10 +37,10 @@ from lore.graph import (
     traverse,
     update_node,
 )
-from lore.graph.schema import SchemaError
+from domaintome.graph.schema import SchemaError
 
-STRESS_DB = Path(".lore") / "stress.db"
-REPORT_PATH = Path(".lore") / "stress_report.json"
+STRESS_DB = Path(".dt") / "stress.db"
+REPORT_PATH = Path(".dt") / "stress_report.json"
 
 GREEN = "\033[32m"
 RED = "\033[31m"
@@ -274,7 +274,7 @@ def edge_case_suite(report: Report) -> None:
         title="Título con ñ y 🚀",
         body=body,
     )
-    from lore.graph import get_node
+    from domaintome.graph import get_node
 
     got = get_node(conn, "u-1")
     if got and got["body"] == body and "🚀" in got["title"]:
@@ -528,24 +528,24 @@ PRODUCT_GAPS = [
     (
         "Recently changed: what moved this week?",
         "No tool filters by `updated_at`. CTE would be 3 lines but there's no "
-        "CLI/MCP surface. Proposal: `lore recent --since 7d` + "
-        "`lore_recent(since)` MCP tool.",
+        "CLI/MCP surface. Proposal: `dt recent --since 7d` + "
+        "`dt_recent(since)` MCP tool.",
     ),
     (
         "Count/analytics: how many flows per capability?",
         "No aggregation tool. Have to list+filter in client. Proposal: "
-        "`lore_stats()` returning counts by type, top-N connected nodes, "
+        "`dt_stats()` returning counts by type, top-N connected nodes, "
         "orphan/island ratio.",
     ),
     (
         "Path finding: is A connected to B, and how?",
         "No shortest-path / any-path API. Traverse only walks from a fixed "
-        "source. Proposal: `lore_paths(from, to, max_depth)`.",
+        "source. Proposal: `dt_paths(from, to, max_depth)`.",
     ),
     (
         "Centrality: what are the most connected nodes?",
         "No degree/centrality summary. Important for 'what will break if I "
-        "touch this?' Proposal: `lore_hotspots()` returning top-N by degree.",
+        "touch this?' Proposal: `dt_hotspots()` returning top-N by degree.",
     ),
     (
         "Changelog / history: why was this node changed?",
@@ -556,30 +556,30 @@ PRODUCT_GAPS = [
     (
         "Cross-cutting slices: everything related to 'auth'",
         "Tags partially answer this but can't combine (AND/OR), and there's "
-        "no CLI. Proposal: `lore query --tag auth --tag critical`.",
+        "no CLI. Proposal: `dt query --tag auth --tag critical`.",
     ),
     (
         "Bidirectional query: who references this decision?",
-        "`lore show <decision>` shows INCOMING references already — good. But "
+        "`dt show <decision>` shows INCOMING references already — good. But "
         "there's no tool to list 'most-referenced decisions' or 'decisions "
         "with zero references' (probably obsolete).",
     ),
     (
         "Validation: run schema migrations / re-check all edges",
         "If we change ALLOWED_RELATIONS, nothing re-validates existing rows. "
-        "Proposal: `lore audit --strict` re-validates every edge against "
+        "Proposal: `dt audit --strict` re-validates every edge against "
         "current schema.",
     ),
     (
         "Export formats beyond markdown",
         "No JSON/GraphViz/Mermaid export. A Mermaid export of a capability "
         "neighborhood would slot straight into PRs and READMEs. Proposal: "
-        "`lore export --format mermaid`.",
+        "`dt export --format mermaid`.",
     ),
     (
         "LLM-friendly tool for 'summarize module X'",
-        "The closest is `lore query module-id --depth 2`, returning raw nodes. "
-        "An LLM would benefit from a pre-digested `lore_summarize(node_id)` "
+        "The closest is `dt query module-id --depth 2`, returning raw nodes. "
+        "An LLM would benefit from a pre-digested `dt_summarize(node_id)` "
         "that groups and labels. Not critical but would reduce token use.",
     ),
     (
@@ -591,7 +591,7 @@ PRODUCT_GAPS = [
     (
         "Project bootstrap: generate seed from codebase",
         "PRD §3 explicitly defers this (no parser). That's fine now, but "
-        "having seen how tedious the seed is, a 'lore suggest' that proposes "
+        "having seen how tedious the seed is, a 'dt suggest' that proposes "
         "module nodes from folder structure would make bootstrap 10× faster.",
     ),
 ]
