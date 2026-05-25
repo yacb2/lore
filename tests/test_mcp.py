@@ -163,3 +163,164 @@ async def test_schema_violation_surfaces_as_error(tmp_path):
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
+
+
+# ---------------------------------------------------------------------------
+# Truncation contract — dt_traverse, dt_list and dt_query must mark partial
+# results with `_truncated: true` so the LLM consumer never reasons over
+# silently-cropped data. See `.context/backlog/2026-05-14-dt-truncation-metadata.md`.
+# ---------------------------------------------------------------------------
+
+
+async def _call(server, name: str, args: dict):
+    import json as _json
+
+    result = await server.call_tool(name, args)
+    if isinstance(result, tuple):
+        content, structured = result
+    else:
+        content, structured = result, None
+    if structured is not None:
+        if isinstance(structured, dict) and set(structured.keys()) == {"result"}:
+            return structured["result"]
+        return structured
+    for block in content:
+        text = getattr(block, "text", None)
+        if text:
+            return _json.loads(text)
+    raise AssertionError(f"No content from tool {name}")
+
+
+@pytest.mark.anyio
+async def test_dt_list_wraps_in_dict_and_marks_truncation(tmp_path, monkeypatch):
+    """dt_list always returns a dict with `items`; when serialized output
+    exceeds DT_MAX_RESPONSE_BYTES, it carries truncation metadata."""
+    monkeypatch.setenv("DT_MAX_RESPONSE_BYTES", "1500")
+    db = tmp_path / "graph.db"
+    server = build_server(db)
+
+    # Seed ~80 modules so the full list comfortably overshoots 1.5KB.
+    for i in range(80):
+        await _call(
+            server,
+            "dt_add_node",
+            {"id": f"m-{i:03d}", "type": "module", "title": f"Module {i}"},
+        )
+
+    out = await _call(server, "dt_list", {"type": "module"})
+    assert isinstance(out, dict), "dt_list must return a dict (wrapped)"
+    assert "items" in out
+    assert out.get("_truncated") is True
+    assert out.get("_truncated_reason") == "max_bytes"
+    assert out.get("_total_estimated") == 80
+    assert "hint" in (out.get("_hint") or "").lower() or out.get("_hint")
+    assert len(out["items"]) < 80
+
+
+@pytest.mark.anyio
+async def test_dt_list_no_truncation_when_small(tmp_path, monkeypatch):
+    """When the response fits under the limit, dt_list returns
+    {"items": [...]} with no `_truncated` field."""
+    monkeypatch.setenv("DT_MAX_RESPONSE_BYTES", "30000")
+    db = tmp_path / "graph.db"
+    server = build_server(db)
+
+    await _call(
+        server,
+        "dt_add_node",
+        {"id": "only", "type": "module", "title": "Only"},
+    )
+    out = await _call(server, "dt_list", {})
+    assert isinstance(out, dict)
+    assert "items" in out
+    assert out.get("_truncated") is None or out.get("_truncated") is False
+    assert len(out["items"]) == 1
+
+
+@pytest.mark.anyio
+async def test_dt_traverse_marks_truncation(tmp_path, monkeypatch):
+    """dt_traverse adds `_truncated` metadata when nodes+edges exceed the
+    byte budget; otherwise behaves as before."""
+    monkeypatch.setenv("DT_MAX_RESPONSE_BYTES", "1500")
+    db = tmp_path / "graph.db"
+    server = build_server(db)
+
+    # Hub-and-spoke: one module with many flows linked via part_of.
+    await _call(
+        server,
+        "dt_add_node",
+        {"id": "hub", "type": "module", "title": "Hub"},
+    )
+    for i in range(60):
+        await _call(
+            server,
+            "dt_add_node",
+            {"id": f"f-{i:03d}", "type": "flow", "title": f"Flow {i}"},
+        )
+        await _call(
+            server,
+            "dt_add_edge",
+            {"from_id": f"f-{i:03d}", "to_id": "hub", "relation": "part_of"},
+        )
+
+    out = await _call(
+        server, "dt_traverse", {"from_id": "hub", "max_depth": 0}
+    )
+    # depth=0 → only the hub, no truncation expected.
+    assert "_truncated" not in out or out.get("_truncated") is not True
+    assert out["nodes"][0]["id"] == "hub"
+
+    # Now reverse traversal via a deep walk: seed reverse edges so the
+    # traversal actually fans out.
+    for i in range(60):
+        await _call(
+            server,
+            "dt_add_edge",
+            {"from_id": "hub", "to_id": f"f-{i:03d}", "relation": "depends_on"},
+        )
+
+    out2 = await _call(
+        server,
+        "dt_traverse",
+        {"from_id": "hub", "relations": ["depends_on"], "max_depth": 1},
+    )
+    assert out2.get("_truncated") is True
+    assert out2.get("_truncated_reason") == "max_bytes"
+    assert "hint" in (out2.get("_hint") or "").lower() or out2.get("_hint")
+    # Truncated set must be self-consistent: every edge points to a kept node.
+    kept = {n["id"] for n in out2["nodes"]}
+    for e in out2["edges"]:
+        assert e["from_id"] in kept and e["to_id"] in kept
+
+
+@pytest.mark.anyio
+async def test_dt_query_marks_truncation(tmp_path, monkeypatch):
+    """dt_query carries `_truncated` metadata when its neighborhood
+    exceeds DT_MAX_RESPONSE_BYTES."""
+    monkeypatch.setenv("DT_MAX_RESPONSE_BYTES", "1500")
+    db = tmp_path / "graph.db"
+    server = build_server(db)
+
+    await _call(
+        server,
+        "dt_add_node",
+        {"id": "center", "type": "module", "title": "Center"},
+    )
+    for i in range(60):
+        await _call(
+            server,
+            "dt_add_node",
+            {"id": f"n-{i:03d}", "type": "flow", "title": f"Node {i}"},
+        )
+        await _call(
+            server,
+            "dt_add_edge",
+            {"from_id": f"n-{i:03d}", "to_id": "center", "relation": "part_of"},
+        )
+
+    out = await _call(server, "dt_query", {"text_or_id": "center", "depth": 1})
+    assert out.get("_truncated") is True
+    assert out.get("_truncated_reason") == "max_bytes"
+    kept = {n["id"] for n in out["nodes"]}
+    for e in out["edges"]:
+        assert e["from_id"] in kept and e["to_id"] in kept

@@ -30,13 +30,28 @@ Before answering "how does X work?" or writing non-trivial code that touches
 a known concept, consult the graph:
 
 1. `dt_query(text_or_id, depth=1)` — **`text_or_id` is required**. Exact id / title substring / tag.
-2. `dt_list(type=..., include_body=False)` — cheap summary scan; follow up with `dt_get_node` for detail.
+2. `dt_list(type=..., include_body=False)` — cheap summary scan; follow up with `dt_get_node` for detail. Returns `{"items": [...]}`.
 3. `dt_get_node(id, include_edges=true)` — full detail of a hit.
 4. `dt_find_variants(capability_id)` — "how many ways of doing X?"
 5. `dt_traverse(from_id, relations, max_depth)` — blast radius.
 
 If the graph has the answer, cite the node id(s). If it's silent, say so —
 don't fabricate.
+
+### Truncation contract
+
+`dt_query`, `dt_traverse` and `dt_list` cap their serialized response at
+`DT_MAX_RESPONSE_BYTES` (default 30 KB) so a single call cannot saturate
+the LLM context. When a response is partial it carries `_truncated: true`
+together with `_truncated_reason`, `_total_estimated` and `_hint`.
+
+**Rule:** if you see `_truncated: true`, the result is incomplete — do
+not reason as if you saw the full set. Refine: add filters
+(`type`/`status`/`tag`), narrow `text_or_id`, or lower `max_depth`.
+Absence of `_truncated` means the response is complete.
+
+`dt_get_node` and `dt_show` are exempt: single-node, the caller asked
+for that exact node.
 
 ## Detect contradictions
 

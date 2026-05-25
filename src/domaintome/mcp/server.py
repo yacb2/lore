@@ -8,6 +8,7 @@ user can later answer "how much did DomainTome cost me on this project?" via
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import sys
 import time
@@ -74,6 +75,123 @@ from domaintome.graph import (
     update_node as _update_node,
 )
 from domaintome.graph.schema import schema_descriptor as _schema_descriptor
+
+# Default byte budget for tool responses that can grow unboundedly
+# (`dt_traverse`, `dt_list`, `dt_query`). Overridable via the
+# `DT_MAX_RESPONSE_BYTES` environment variable.
+_DEFAULT_MAX_RESPONSE_BYTES = 30_000
+_TRUNCATION_HINT = (
+    "use filters (type/status/tag), narrower text_or_id, or lower max_depth"
+)
+
+
+def _max_response_bytes() -> int:
+    raw = os.environ.get("DT_MAX_RESPONSE_BYTES")
+    if raw is None:
+        return _DEFAULT_MAX_RESPONSE_BYTES
+    try:
+        value = int(raw)
+    except ValueError:
+        return _DEFAULT_MAX_RESPONSE_BYTES
+    return value if value > 0 else _DEFAULT_MAX_RESPONSE_BYTES
+
+
+def _serialized_bytes(value: Any) -> int:
+    return len(json.dumps(value, default=str).encode("utf-8"))
+
+
+def _truncate_node_set(
+    payload: dict[str, Any], max_bytes: int
+) -> dict[str, Any]:
+    """For `dt_traverse` / `dt_query` shape `{nodes, edges, ...}`. If the
+    serialized payload exceeds `max_bytes`, drop nodes from the end and
+    keep only edges contained in the remaining node set. Adds truncation
+    metadata. Otherwise returns the payload unchanged."""
+    nodes: list[dict[str, Any]] = list(payload.get("nodes") or [])
+    edges: list[dict[str, Any]] = list(payload.get("edges") or [])
+    if _serialized_bytes(payload) <= max_bytes:
+        return payload
+
+    total_nodes = len(nodes)
+
+    def _fits(k: int) -> bool:
+        kept_ids = {n["id"] for n in nodes[:k]}
+        kept_edges = [
+            e
+            for e in edges
+            if e["from_id"] in kept_ids and e["to_id"] in kept_ids
+        ]
+        candidate = {
+            **payload,
+            "nodes": nodes[:k],
+            "edges": kept_edges,
+            "_truncated": True,
+            "_truncated_reason": "max_bytes",
+            "_total_estimated": total_nodes,
+            "_hint": _TRUNCATION_HINT,
+        }
+        return _serialized_bytes(candidate) <= max_bytes
+
+    lo, hi = 0, total_nodes
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if _fits(mid):
+            lo = mid
+        else:
+            hi = mid - 1
+
+    kept_ids = {n["id"] for n in nodes[:lo]}
+    kept_edges = [
+        e
+        for e in edges
+        if e["from_id"] in kept_ids and e["to_id"] in kept_ids
+    ]
+    return {
+        **payload,
+        "nodes": nodes[:lo],
+        "edges": kept_edges,
+        "_truncated": True,
+        "_truncated_reason": "max_bytes",
+        "_total_estimated": total_nodes,
+        "_hint": _TRUNCATION_HINT,
+    }
+
+
+def _wrap_list_with_truncation(
+    items: list[Any], max_bytes: int
+) -> dict[str, Any]:
+    """For `dt_list`: always wrap the items in a dict. If the serialized
+    wrapper exceeds `max_bytes`, drop items from the end and add
+    truncation metadata."""
+    total = len(items)
+    base: dict[str, Any] = {"items": items}
+    if _serialized_bytes(base) <= max_bytes:
+        return base
+
+    def _fits(k: int) -> bool:
+        candidate = {
+            "items": items[:k],
+            "_truncated": True,
+            "_truncated_reason": "max_bytes",
+            "_total_estimated": total,
+            "_hint": _TRUNCATION_HINT,
+        }
+        return _serialized_bytes(candidate) <= max_bytes
+
+    lo, hi = 0, total
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if _fits(mid):
+            lo = mid
+        else:
+            hi = mid - 1
+    return {
+        "items": items[:lo],
+        "_truncated": True,
+        "_truncated_reason": "max_bytes",
+        "_total_estimated": total,
+        "_hint": _TRUNCATION_HINT,
+    }
 
 
 def _bytes(value: Any) -> int:
@@ -342,8 +460,15 @@ def build_server(db_path: str | Path) -> FastMCP:
     def dt_query(text_or_id: str, depth: int = 1) -> dict[str, Any]:
         """Flexible search. Tries exact id, then title substring, then tag.
         `text_or_id` is required. Returns matched nodes plus neighborhood up
-        to `depth`."""
-        return _query(conn, text_or_id, depth=depth)
+        to `depth`.
+
+        Large neighborhoods are truncated by serialized size
+        (`DT_MAX_RESPONSE_BYTES`, default 30KB). Truncated responses carry
+        `_truncated: true`, `_truncated_reason`, `_total_estimated` and
+        `_hint`. Absence of `_truncated` means the result is complete."""
+        return _truncate_node_set(
+            _query(conn, text_or_id, depth=depth), _max_response_bytes()
+        )
 
     @mcp.tool()
     @_instrumented(conn, "dt_traverse", "read")
@@ -353,9 +478,15 @@ def build_server(db_path: str | Path) -> FastMCP:
         max_depth: int = 3,
     ) -> dict[str, Any]:
         """Walk the graph from a node, following only the listed relations
-        (or all of them if None)."""
-        return _traverse(
-            conn, from_id, relations=relations, max_depth=max_depth
+        (or all of them if None).
+
+        Large traversals are truncated by serialized size
+        (`DT_MAX_RESPONSE_BYTES`, default 30KB). Truncated responses carry
+        `_truncated: true`, `_truncated_reason`, `_total_estimated` and
+        `_hint`. Absence of `_truncated` means the result is complete."""
+        return _truncate_node_set(
+            _traverse(conn, from_id, relations=relations, max_depth=max_depth),
+            _max_response_bytes(),
         )
 
     @mcp.tool()
@@ -372,17 +503,24 @@ def build_server(db_path: str | Path) -> FastMCP:
         status: str | None = None,
         tag: str | None = None,
         include_body: bool = False,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """List nodes, optionally filtered by type, status or tag. Returns
         id/type/title/status only by default (cheap for large graphs). Pass
-        `include_body=True` for full nodes when you actually need them."""
-        return _list_nodes(
+        `include_body=True` for full nodes when you actually need them.
+
+        Always returns `{"items": [...]}` (wrapped). Large responses are
+        truncated by serialized size (`DT_MAX_RESPONSE_BYTES`, default
+        30KB); truncated responses carry `_truncated: true`,
+        `_truncated_reason`, `_total_estimated` and `_hint`. Absence of
+        `_truncated` means the list is complete."""
+        items = _list_nodes(
             conn,
             type=type,
             status=status,
             tag=tag,
             summary_only=not include_body,
         )
+        return _wrap_list_with_truncation(items, _max_response_bytes())
 
     @mcp.tool()
     @_instrumented(conn, "dt_audit", "audit")

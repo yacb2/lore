@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-05-25
+
+### Added — explicit truncation metadata on read tools
+
+`dt_traverse`, `dt_query` and `dt_list` now mark partial responses so the
+LLM consumer never reasons over silently-cropped data. When the
+serialized response exceeds `DT_MAX_RESPONSE_BYTES` (new env var, default
+30 KB), the payload carries:
+
+- `_truncated: true`
+- `_truncated_reason: "max_bytes"`
+- `_total_estimated: <int>` (full count before truncation)
+- `_hint: "use filters (type/status/tag), narrower text_or_id, or lower max_depth"`
+
+Absence of `_truncated` means the result is complete. `dt_get_node` and
+`dt_show` are intentionally exempt (single-node, the caller asked for
+that exact node).
+
+### Changed (BREAKING — `dt_list` response shape)
+
+`dt_list` now returns `{"items": [...], ...}` instead of a bare list.
+This makes truncation metadata representable and aligns its shape with
+`dt_traverse`/`dt_query`. Pre-1.0 breaking change documented loudly per
+the project's release policy.
+
+Migration for client code:
+
+```python
+# before
+for node in dt_list(type="module"):
+    ...
+
+# after
+result = dt_list(type="module")
+for node in result["items"]:
+    ...
+if result.get("_truncated"):
+    # refine the query
+    ...
+```
+
+The Python `domaintome.graph.list_nodes` function and the `dt list` CLI
+are unchanged — only the MCP tool wraps its output.
+
 ## [0.4.0] — 2026-05-02
 
 ### Changed (BREAKING — plugin namespace)
