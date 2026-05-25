@@ -10,7 +10,14 @@ from domaintome.graph.nodes import (
     get_node,
     update_node,
 )
-from domaintome.graph.queries import audit, find_variants, list_nodes, query, traverse
+from domaintome.graph.queries import (
+    audit,
+    find_variants,
+    list_nodes,
+    overview,
+    query,
+    traverse,
+)
 from domaintome.graph.schema import (
     ALLOWED_RELATIONS,
     GENERIC_ID_WORDS,
@@ -40,6 +47,7 @@ __all__ = [
     "list_nodes",
     "log_call",
     "open_db",
+    "overview",
     "query",
     "remove_edge",
     "stats",

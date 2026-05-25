@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from domaintome.graph._common import placeholders as _ph
@@ -298,6 +299,106 @@ def audit(conn: sqlite3.Connection) -> dict[str, Any]:
         "nodes_by_status": dict(sorted(by_status.items())),
         "edges_by_relation": dict(sorted(by_relation.items())),
         "last_mutation_at": last_mutation["t"] if last_mutation else None,
+    }
+
+
+def overview(conn: sqlite3.Connection) -> dict[str, Any]:
+    """Bootstrap context for an LLM agent arriving at the graph for the
+    first time. One cheap call that returns the shape of the project:
+    node counts by type, top capabilities by variant count, recent
+    decisions and recent changes, plus a one-line health summary.
+
+    The payload is intentionally compact (under ~2KB on realistic graphs)
+    so callers can include it in a system prompt without inflating the
+    LLM context window.
+    """
+    counts: dict[str, int] = {}
+    for r in conn.execute(
+        "SELECT type, COUNT(*) AS c FROM nodes GROUP BY type"
+    ).fetchall():
+        counts[r["type"]] = r["c"]
+
+    top_caps_rows = conn.execute(
+        """
+        SELECT n.id AS id, n.title AS title,
+               COUNT(e.from_id) AS variant_count
+        FROM nodes n
+        LEFT JOIN edges e
+          ON e.to_id = n.id AND e.relation = 'implements'
+        WHERE n.type = 'capability' AND n.status != 'archived'
+        GROUP BY n.id, n.title
+        ORDER BY variant_count DESC, n.id ASC
+        LIMIT 10
+        """
+    ).fetchall()
+    top_capabilities = [
+        {
+            "id": r["id"],
+            "title": r["title"],
+            "variant_count": r["variant_count"],
+        }
+        for r in top_caps_rows
+    ]
+
+    recent_decisions_rows = conn.execute(
+        """
+        SELECT id, title, updated_at FROM nodes
+        WHERE type = 'decision'
+        ORDER BY updated_at DESC, id ASC
+        LIMIT 5
+        """
+    ).fetchall()
+    recent_decisions = [
+        {"id": r["id"], "title": r["title"], "updated_at": r["updated_at"]}
+        for r in recent_decisions_rows
+    ]
+
+    cutoff = (datetime.now(UTC) - timedelta(days=7)).isoformat(timespec="seconds")
+    recent_changes_rows = conn.execute(
+        """
+        SELECT id, type, title, updated_at FROM nodes
+        WHERE updated_at >= ?
+        ORDER BY updated_at DESC, id ASC
+        LIMIT 10
+        """,
+        (cutoff,),
+    ).fetchall()
+    recent_changes = [
+        {
+            "id": r["id"],
+            "type": r["type"],
+            "title": r["title"],
+            "updated_at": r["updated_at"],
+        }
+        for r in recent_changes_rows
+    ]
+
+    orphan_row = conn.execute(
+        """
+        SELECT COUNT(*) AS c FROM nodes
+        WHERE id NOT IN (
+            SELECT from_id FROM edges
+            UNION
+            SELECT to_id FROM edges
+        )
+        """
+    ).fetchone()
+    orphan_count = orphan_row["c"] if orphan_row else 0
+
+    if orphan_count > 0:
+        health_summary = (
+            f"{orphan_count} orphan node(s) — run dt_audit for detail"
+        )
+    else:
+        health_summary = "ok"
+
+    return {
+        "node_counts": dict(sorted(counts.items())),
+        "total_nodes": sum(counts.values()),
+        "top_capabilities": top_capabilities,
+        "recent_decisions": recent_decisions,
+        "recent_changes": recent_changes,
+        "health_summary": health_summary,
     }
 
 

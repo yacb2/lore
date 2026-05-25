@@ -60,6 +60,9 @@ from domaintome.graph import (
     open_db,
 )
 from domaintome.graph import (
+    overview as _overview,
+)
+from domaintome.graph import (
     query as _query,
 )
 from domaintome.graph import (
@@ -521,6 +524,23 @@ def build_server(db_path: str | Path) -> FastMCP:
             summary_only=not include_body,
         )
         return _wrap_list_with_truncation(items, _max_response_bytes())
+
+    @mcp.tool()
+    @_instrumented(conn, "dt_overview", "read")
+    def dt_overview() -> dict[str, Any]:
+        """USE ME FIRST when landing on a project for the first time, or
+        whenever you need a one-shot map of the graph before deciding
+        where to drill. Returns a compact bootstrap payload:
+        `node_counts` (by type), `total_nodes`, `top_capabilities`
+        (capabilities ranked by `implements` variant count, max 10),
+        `recent_decisions` (last 5 decision nodes by `updated_at`),
+        `recent_changes` (nodes modified in the last 7 days, max 10),
+        and a one-line `health_summary` flagging orphans.
+
+        Stays under ~2KB on realistic graphs — cheap to call before any
+        `dt_list`/`dt_traverse`. Does not replace `dt_schema` (which
+        describes valid types/relations, not content)."""
+        return _overview(conn)
 
     @mcp.tool()
     @_instrumented(conn, "dt_audit", "audit")

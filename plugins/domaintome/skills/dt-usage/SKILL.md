@@ -29,6 +29,9 @@ so you can always verify which one it is using.
 Before answering "how does X work?" or writing non-trivial code that touches
 a known concept, consult the graph:
 
+0. `dt_overview()` — **call this first** when landing on a project. One
+   compact payload with node counts, top capabilities, recent decisions
+   and recent changes. Cheaper than several exploratory calls.
 1. `dt_query(text_or_id, depth=1)` — **`text_or_id` is required**. Exact id / title substring / tag.
 2. `dt_list(type=..., include_body=False)` — cheap summary scan; follow up with `dt_get_node` for detail. Returns `{"items": [...]}`.
 3. `dt_get_node(id, include_edges=true)` — full detail of a hit.

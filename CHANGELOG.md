@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] — 2026-05-25
 
+### Added — `dt_overview` bootstrap tool
+
+New MCP tool `dt_overview()` returns a compact (~< 2KB) map of the graph
+so an LLM agent landing on a project for the first time can orient
+itself with one call instead of several exploratory `dt_list` /
+`dt_traverse` round-trips. Payload includes `node_counts` (by type),
+`total_nodes`, `top_capabilities` (ranked by `implements` variant count,
+max 10), `recent_decisions` (last 5 by `updated_at`), `recent_changes`
+(nodes modified in the last 7 days, max 10), and a one-line
+`health_summary` flagging orphan nodes. Inspired by CodeGraph's
+`CODEGRAPH_ARCH_BOOTSTRAP`.
+
 ### Added — explicit truncation metadata on read tools
 
 `dt_traverse`, `dt_query` and `dt_list` now mark partial responses so the
