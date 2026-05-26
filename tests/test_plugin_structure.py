@@ -105,7 +105,6 @@ def test_expected_plugin_files_present() -> None:
         PLUGIN_MANIFEST,
         MCP_MANIFEST,
         SKILLS_DIR / "dt-usage" / "SKILL.md",
-        SKILLS_DIR / "dt-commit" / "SKILL.md",
         COMMANDS_DIR / "init.md",
         COMMANDS_DIR / "audit.md",
         COMMANDS_DIR / "show.md",

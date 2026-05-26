@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed — `dt-commit` skill
+
+The `dt-commit` skill (user-invocable, `disable-model-invocation: true`)
+has been removed as part of the surface-area consolidation (backlog item
+`dt-consolidate-tools-and-commands`, step 1). It duplicated `dt-usage`'s
+"what to capture / what to skip" guidance without offering unique
+behavior; the operating rule in `CLAUDE.md` ("persist business behavior
+changes via `dt_*` tools") already covers the continuous case, and the
+batch case ("capture this design discussion") is trivially handled by
+any LLM with `dt-usage` already in context. Net change: 2 skills → 1.
+
 ## [0.5.0] — 2026-05-25
 
 ### Added — `dt_overview` bootstrap tool

@@ -35,7 +35,6 @@ Claude Code will:
 - Register the `dt` MCP server from `plugins/domaintome/.mcp.json` (auto-starts
   when the plugin is enabled).
 - Load the `dt-usage` skill (auto-invoked during conversation).
-- Load the `dt-commit` skill (user-invocable only, via `/dt:dt-commit`).
 - Register the five slash commands under `/dt:*`.
 
 Then bootstrap the graph:
@@ -50,7 +49,6 @@ dt init          # creates .dt/graph.db in the current project
 |---|---|
 | `plugins/domaintome/.mcp.json` | Declares the `dt` MCP server. Auto-started. |
 | `plugins/domaintome/skills/dt-usage/SKILL.md` | **Auto-invoked.** Read-first, write-on-decision, contradiction-check. |
-| `plugins/domaintome/skills/dt-commit/SKILL.md` | **User-invocable only.** Explicit bulk persist after a design discussion. |
 | `plugins/domaintome/commands/dt/init.md` | `/dt:init` — bootstrap modules interactively. |
 | `plugins/domaintome/commands/dt/audit.md` | `/dt:audit` — run structural checks. |
 | `plugins/domaintome/commands/dt/show.md` | `/dt:show <id>` — full node detail. |

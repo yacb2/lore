@@ -18,8 +18,7 @@ domaintome/                                   # repo root
         │   └── plugin.json             # plugin manifest (name, version, description)
         ├── .mcp.json                   # MCP servers shipped by this plugin
         ├── skills/
-        │   ├── dt-usage/SKILL.md     # auto-invoked (user-invocable: false)
-        │   └── dt-commit/SKILL.md    # user-only (disable-model-invocation: true)
+        │   └── dt-usage/SKILL.md     # auto-invoked (user-invocable: false)
         └── commands/dt/              # slash commands, namespaced under /dt:
             ├── init.md
             ├── audit.md
