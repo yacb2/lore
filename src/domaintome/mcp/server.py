@@ -540,8 +540,22 @@ def build_server(db_path: str | Path) -> FastMCP:
     @mcp.tool()
     @_instrumented(conn, "dt_find_variants", "read")
     def dt_find_variants(capability_id: str) -> list[dict[str, Any]]:
-        """List all flows that implement the given capability — answers
-        'how many ways of doing X?'."""
+        """DEPRECATED — use `dt_query(text_or_id=capability_id, depth=1)`
+        and filter the returned `edges` for `relation == "implements"`
+        with `to_id == capability_id`; the `from_id` of those edges are
+        the flow variants. Will be removed in the next minor bump.
+
+        Kept as an alias for one release. Still returns the same shape
+        (list of flow node dicts) but emits a `DeprecationWarning`. The
+        consolidation removes a specialized read tool that is a 1-line
+        filter over `dt_query`."""
+        warnings.warn(
+            "dt_find_variants is deprecated; use "
+            "dt_query(text_or_id=capability_id, depth=1) and filter edges "
+            "where relation == 'implements' and to_id == capability_id.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return _find_variants(conn, capability_id)
 
     @mcp.tool()

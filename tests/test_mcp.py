@@ -448,6 +448,87 @@ async def test_dt_add_edges_alias_still_works_and_warns(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_dt_find_variants_alias_still_works_and_warns(tmp_path):
+    db = tmp_path / "graph.db"
+    server = build_server(db)
+
+    await _call(
+        server,
+        "dt_add_node",
+        {
+            "nodes": [
+                {"id": "cap-z", "type": "capability", "title": "Z"},
+                {"id": "flow-z1", "type": "flow", "title": "FZ1"},
+                {"id": "flow-z2", "type": "flow", "title": "FZ2"},
+            ]
+        },
+    )
+    await _call(
+        server,
+        "dt_add_edge",
+        {
+            "edges": [
+                {"from_id": "flow-z1", "to_id": "cap-z", "relation": "implements"},
+                {"from_id": "flow-z2", "to_id": "cap-z", "relation": "implements"},
+            ]
+        },
+    )
+
+    import warnings as _warnings
+
+    with _warnings.catch_warnings(record=True) as caught:
+        _warnings.simplefilter("always")
+        variants = await _call(
+            server, "dt_find_variants", {"capability_id": "cap-z"}
+        )
+    assert {v["id"] for v in variants} == {"flow-z1", "flow-z2"}
+    assert any(
+        issubclass(w.category, DeprecationWarning)
+        and "dt_find_variants" in str(w.message)
+        for w in caught
+    )
+
+
+@pytest.mark.anyio
+async def test_dt_query_replaces_find_variants(tmp_path):
+    """The replacement pattern: dt_query(cap_id, depth=1) returns the
+    capability and its 1-hop neighbors; filtering edges for
+    relation=implements with to_id=cap_id yields the variants."""
+    db = tmp_path / "graph.db"
+    server = build_server(db)
+
+    await _call(
+        server,
+        "dt_add_node",
+        {
+            "nodes": [
+                {"id": "cap-q", "type": "capability", "title": "Q"},
+                {"id": "flow-q1", "type": "flow", "title": "FQ1"},
+                {"id": "flow-q2", "type": "flow", "title": "FQ2"},
+            ]
+        },
+    )
+    await _call(
+        server,
+        "dt_add_edge",
+        {
+            "edges": [
+                {"from_id": "flow-q1", "to_id": "cap-q", "relation": "implements"},
+                {"from_id": "flow-q2", "to_id": "cap-q", "relation": "implements"},
+            ]
+        },
+    )
+
+    out = await _call(server, "dt_query", {"text_or_id": "cap-q", "depth": 1})
+    variant_ids = {
+        e["from_id"]
+        for e in out["edges"]
+        if e["relation"] == "implements" and e["to_id"] == "cap-q"
+    }
+    assert variant_ids == {"flow-q1", "flow-q2"}
+
+
+@pytest.mark.anyio
 async def test_dt_add_nodes_alias_still_works_and_warns(tmp_path):
     db = tmp_path / "graph.db"
     server = build_server(db)

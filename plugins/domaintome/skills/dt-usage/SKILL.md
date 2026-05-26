@@ -35,8 +35,9 @@ a known concept, consult the graph:
 1. `dt_query(text_or_id, depth=1)` — **`text_or_id` is required**. Exact id / title substring / tag.
 2. `dt_list(type=..., include_body=False)` — cheap summary scan; follow up with `dt_get_node` for detail. Returns `{"items": [...]}`.
 3. `dt_get_node(id, include_edges=true)` — full detail of a hit.
-4. `dt_find_variants(capability_id)` — "how many ways of doing X?"
-5. `dt_traverse(from_id, relations, max_depth)` — blast radius.
+4. `dt_traverse(from_id, relations, max_depth)` — blast radius.
+
+**"How many ways of doing X?"** — use `dt_query(text_or_id=<capability_id>, depth=1)` and filter the returned `edges` for `relation == "implements"` with `to_id == <capability_id>`; the `from_id` of each matching edge is a flow variant. The legacy `dt_find_variants` tool still works but is deprecated and will be removed next release.
 
 If the graph has the answer, cite the node id(s). If it's silent, say so —
 don't fabricate.

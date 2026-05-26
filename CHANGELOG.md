@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Deprecated — `dt_find_variants`
+
+Step 3 of the surface-area consolidation. `dt_find_variants` is a
+specialized read tool that is a 1-line filter over `dt_query` — it
+returns the flows that `implements`-edge into a capability. Replacement
+pattern, documented in `dt-usage`:
+
+```
+result = dt_query(text_or_id=<capability_id>, depth=1)
+variants = [
+    e["from_id"]
+    for e in result["edges"]
+    if e["relation"] == "implements" and e["to_id"] == <capability_id>
+]
+```
+
+The tool still works this release (returns the same shape) but emits a
+`DeprecationWarning`. **It will be removed in the next minor bump.**
+The Python helper `domaintome.graph.find_variants` is unaffected; only
+the MCP tool surface is shrinking.
+
 ### Changed — unified batch mode on `dt_add_node` / `dt_add_edge`
 
 Step 2 of the surface-area consolidation (backlog item
