@@ -324,3 +324,151 @@ async def test_dt_query_marks_truncation(tmp_path, monkeypatch):
     kept = {n["id"] for n in out["nodes"]}
     for e in out["edges"]:
         assert e["from_id"] in kept and e["to_id"] in kept
+
+
+# ---------------------------------------------------------------------------
+# Unified batch mode on dt_add_node / dt_add_edge — step 2 of the
+# surface-area consolidation. The plurals (dt_add_nodes, dt_add_edges) are
+# kept as deprecated aliases for one release; the new shape lives on the
+# singulars via optional `nodes` / `edges` params.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_dt_add_node_batch_mode_via_nodes_arg(tmp_path):
+    db = tmp_path / "graph.db"
+    server = build_server(db)
+
+    out = await _call(
+        server,
+        "dt_add_node",
+        {
+            "nodes": [
+                {"id": "m-a", "type": "module", "title": "A"},
+                {"id": "m-b", "type": "module", "title": "B"},
+            ]
+        },
+    )
+    assert isinstance(out, dict)
+    assert "results" in out
+    assert {r["id"] for r in out["results"]} == {"m-a", "m-b"}
+
+
+@pytest.mark.anyio
+async def test_dt_add_node_single_mode_unchanged(tmp_path):
+    db = tmp_path / "graph.db"
+    server = build_server(db)
+
+    out = await _call(
+        server,
+        "dt_add_node",
+        {"id": "m-solo", "type": "module", "title": "Solo"},
+    )
+    assert out["id"] == "m-solo"
+    assert "results" not in out
+
+
+@pytest.mark.anyio
+async def test_dt_add_node_missing_args_returns_error(tmp_path):
+    db = tmp_path / "graph.db"
+    server = build_server(db)
+
+    out = await _call(server, "dt_add_node", {})
+    assert "error" in out
+
+
+@pytest.mark.anyio
+async def test_dt_add_edge_batch_mode_via_edges_arg(tmp_path):
+    db = tmp_path / "graph.db"
+    server = build_server(db)
+
+    await _call(
+        server,
+        "dt_add_node",
+        {
+            "nodes": [
+                {"id": "cap-x", "type": "capability", "title": "X"},
+                {"id": "flow-1", "type": "flow", "title": "F1"},
+                {"id": "flow-2", "type": "flow", "title": "F2"},
+            ]
+        },
+    )
+    out = await _call(
+        server,
+        "dt_add_edge",
+        {
+            "edges": [
+                {"from_id": "flow-1", "to_id": "cap-x", "relation": "implements"},
+                {"from_id": "flow-2", "to_id": "cap-x", "relation": "implements"},
+            ]
+        },
+    )
+    assert "results" in out
+    assert len(out["results"]) == 2
+
+
+@pytest.mark.anyio
+async def test_dt_add_edges_alias_still_works_and_warns(tmp_path):
+    db = tmp_path / "graph.db"
+    server = build_server(db)
+
+    await _call(
+        server,
+        "dt_add_node",
+        {
+            "nodes": [
+                {"id": "cap-y", "type": "capability", "title": "Y"},
+                {"id": "flow-y", "type": "flow", "title": "FY"},
+            ]
+        },
+    )
+    import warnings as _warnings
+
+    with _warnings.catch_warnings(record=True) as caught:
+        _warnings.simplefilter("always")
+        out = await _call(
+            server,
+            "dt_add_edges",
+            {
+                "edges": [
+                    {
+                        "from_id": "flow-y",
+                        "to_id": "cap-y",
+                        "relation": "implements",
+                    }
+                ]
+            },
+        )
+    assert isinstance(out, list)
+    assert len(out) == 1
+    assert any(
+        issubclass(w.category, DeprecationWarning) and "dt_add_edges" in str(w.message)
+        for w in caught
+    )
+
+
+@pytest.mark.anyio
+async def test_dt_add_nodes_alias_still_works_and_warns(tmp_path):
+    db = tmp_path / "graph.db"
+    server = build_server(db)
+
+    import warnings as _warnings
+
+    with _warnings.catch_warnings(record=True) as caught:
+        _warnings.simplefilter("always")
+        out = await _call(
+            server,
+            "dt_add_nodes",
+            {
+                "nodes": [
+                    {"id": "n-1", "type": "module", "title": "N1"},
+                    {"id": "n-2", "type": "module", "title": "N2"},
+                ]
+            },
+        )
+    assert isinstance(out, list)
+    assert {n["id"] for n in out} == {"n-1", "n-2"}
+    assert any(
+        issubclass(w.category, DeprecationWarning) and "dt_add_nodes" in str(w.message)
+        for w in caught
+    )

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — unified batch mode on `dt_add_node` / `dt_add_edge`
+
+Step 2 of the surface-area consolidation (backlog item
+`dt-consolidate-tools-and-commands`). `dt_add_node` now accepts an
+optional `nodes: list[dict]` arg; when set, it persists the batch
+atomically and returns `{"results": [...]}`. Same shape on `dt_add_edge`
+via an optional `edges` arg. Single-node / single-edge calls keep
+working exactly as before — this is additive, not breaking.
+
+The legacy `dt_add_nodes` and `dt_add_edges` tools are kept as
+deprecated aliases for one release: they still work and return the same
+shape they used to, but emit a `DeprecationWarning` and their docstring
+points to the unified form. **They will be removed in the next minor
+bump.** Existing prompts and skills that use the plural form will keep
+working through this release; update them at your leisure.
+
+Plugin docs (`commands/init.md`, `commands/bootstrap.md`,
+`commands/sync.md`, `commands/stats.md`) and the `dt-usage` skill now
+recommend the unified form. Net surface after step 6 of the
+consolidation (deprecation removal): -2 MCP tools.
+
 ### Removed — `dt-commit` skill
 
 The `dt-commit` skill (user-invocable, `disable-model-invocation: true`)

@@ -69,7 +69,7 @@ When the conversation produces one of these, persist it:
 | Trigger | Action |
 |---|---|
 | New module / capability / flow named and agreed on | `dt_add_node(...)` |
-| Many related nodes at once (bootstrap, discovery) | `dt_add_nodes([...])` — one transaction |
+| Many related nodes at once (bootstrap, discovery) | `dt_add_node(nodes=[...])` — one atomic transaction (the legacy `dt_add_nodes` alias still works but is deprecated and will be removed next release) |
 | Flow A now supersedes flow B | `dt_add_edge(from=A, to=B, relation="supersedes")`, mark `B.status="superseded"` |
 | New event emitted by a flow | `dt_add_node(type="event")` + `triggers` edge |
 | New rule or validation | `dt_add_node(type="rule")` + `enforces` edge to the entity |

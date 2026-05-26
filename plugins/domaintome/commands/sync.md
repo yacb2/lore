@@ -81,7 +81,7 @@ sync detects code without a node.
    ```
 
    Show the user the batch and **wait for confirmation** before
-   persisting. Persist the confirmed batch with `dt_add_nodes(...)`
+   persisting. Persist the confirmed batch with `dt_add_node(nodes=[...])`
    in one transaction. Always set provenance:
 
    - `source: "inferred_from_code"`

@@ -108,9 +108,9 @@ assumes modules already exist and focuses on extending them.
    sample of each, and the detected language. Ask for approval. If the
    user wants edits (drop some modules, rename), apply them in-memory.
 
-4. **Persist in one transaction** using batch tools:
-   - `dt_add_nodes([...])` for all modules, capabilities, flows.
-   - `dt_add_edges([...])` for `part_of` (capability → module, flow → module) and `implements` (flow → capability).
+4. **Persist in one transaction** using batch mode:
+   - `dt_add_node(nodes=[...])` for all modules, capabilities, flows.
+   - `dt_add_edge(edges=[...])` for `part_of` (capability → module, flow → module) and `implements` (flow → capability).
    - Every node's `metadata` must include:
      - `source: "inferred_from_code"`
      - `confidence: "medium"` (bootstrap inferences are never `high`)
@@ -118,7 +118,7 @@ assumes modules already exist and focuses on extending them.
      - `source_ref: "<path[:line]>"` when the node maps to a concrete file
      - `last_verified_at: "<today ISO>"`
 
-   Remember the counts you asked `dt_add_nodes` / `dt_add_edges` to
+   Remember the counts you asked `dt_add_node` / `dt_add_edge` to
    persist — call them `N_nodes` and `N_edges`.
 
 5. **Mandatory verification — do NOT skip this.** Hallucinating a

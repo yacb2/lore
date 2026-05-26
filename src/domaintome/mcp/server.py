@@ -12,6 +12,7 @@ import os
 import sqlite3
 import sys
 import time
+import warnings
 from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
@@ -278,19 +279,32 @@ def build_server(db_path: str | Path) -> FastMCP:
     @mcp.tool()
     @_instrumented(conn, "dt_add_node", "create")
     def dt_add_node(
-        id: str,
-        type: str,
-        title: str,
+        id: str | None = None,
+        type: str | None = None,
+        title: str | None = None,
         body: str | None = None,
         status: str = "active",
         metadata: dict[str, Any] | None = None,
         return_mode: str = "summary",
+        nodes: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """USE ME after introducing new business behavior in code: a new
         endpoint/view, model, signal, management command, event, validation
         rule, form, module, or architectural decision. Also when the user
         confirms a flow that supersedes another, or when a new entity enters
         the domain.
+
+        Two modes:
+
+        - **Single node** (default): pass `id`, `type`, `title` (+ optional
+          `body`, `status`, `metadata`). Returns `{id, type, status,
+          warnings}` by default; pass `return_mode='full'` for the entire
+          persisted node.
+        - **Batch** (preferred for bootstrap / discovery): pass `nodes` as a
+          list of dicts (each with `id`/`type`/`title` and the same optional
+          fields). The other top-level args are ignored. Returns
+          `{"results": [<shrunken-or-full>...]}`. Atomic — fails as a unit if
+          any entry is invalid. Replaces the deprecated `dt_add_nodes` tool.
 
         Type must be one of: module, capability, flow, event, rule, form,
         entity, decision. Write `title`/`body` in the same natural language
@@ -300,12 +314,19 @@ def build_server(db_path: str | Path) -> FastMCP:
         inferred_from_conversation | code_change | scan | incident | manual`,
         `confidence` from `high | medium | low`. Always set
         `metadata.source_ref` (path or path:line) so the node can be
-        reconciled with code later.
-
-        Returns `{id, type, status, warnings}` by default. Pass
-        `return_mode='full'` for the entire persisted node. Read `warnings`
-        to fix soft issues (thin body, missing source, orphan rule/decision)
-        on the next call."""
+        reconciled with code later. Read `warnings` on each result to fix
+        soft issues (thin body, missing source, orphan rule/decision) on the
+        next call."""
+        if nodes is not None:
+            results = _add_nodes_batch(conn, nodes)
+            return {"results": [_shrink(n, return_mode) for n in results]}
+        if not id or not type or not title:
+            return {
+                "error": (
+                    "Provide either single-node args (id+type+title) or "
+                    "the batch arg (nodes=[...])."
+                )
+            }
         node = _add_node(
             conn,
             node_id=id,
@@ -323,15 +344,15 @@ def build_server(db_path: str | Path) -> FastMCP:
         nodes: list[dict[str, Any]],
         return_mode: str = "summary",
     ) -> list[dict[str, Any]]:
-        """USE ME when persisting several related nodes from the same change
-        (e.g. a new module plus its flows and rules) — atomic and cheaper
-        than repeated `dt_add_node` calls. Each item needs `id`, `type`,
-        `title`; optional `body`, `status`, `metadata` (same canonical
-        vocabulary as `dt_add_node`). Fails atomically if any entry is
-        invalid.
-
-        Default response is the summary form per node; pass
-        `return_mode='full'` for the full nodes."""
+        """DEPRECATED — use `dt_add_node(nodes=[...])` instead. Will be
+        removed in the next minor bump. This alias is kept for one release
+        so existing prompts/skills keep working; it still persists every
+        node atomically and returns the same shape it used to."""
+        warnings.warn(
+            "dt_add_nodes is deprecated; use dt_add_node(nodes=[...]).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         results = _add_nodes_batch(conn, nodes)
         return [_shrink(n, return_mode) for n in results]
 
@@ -411,10 +432,11 @@ def build_server(db_path: str | Path) -> FastMCP:
     @mcp.tool()
     @_instrumented(conn, "dt_add_edge", "create")
     def dt_add_edge(
-        from_id: str,
-        to_id: str,
-        relation: str,
+        from_id: str | None = None,
+        to_id: str | None = None,
+        relation: str | None = None,
         metadata: dict[str, Any] | None = None,
+        edges: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """USE ME after creating or updating nodes to wire them into the
         rest of the graph: a new flow needs `implements` to its capability
@@ -422,12 +444,31 @@ def build_server(db_path: str | Path) -> FastMCP:
         entity it protects; a superseding decision needs `supersedes`. An
         unconnected node is invisible in traversals.
 
-        The relation must be valid for the node types. Common pairs:
-        `part_of` (flow/capability/form/event → module), `implements`
-        (flow → capability), `depends_on` (module/flow → module/flow),
-        `triggers` (flow/event → event/flow), `validates` (form → rule),
-        `enforces` (rule → entity). Call `dt_schema` first if unsure —
-        cheaper than recovering from a `SchemaError`."""
+        Two modes:
+
+        - **Single edge** (default): pass `from_id`, `to_id`, `relation`
+          (+ optional `metadata`). Returns the persisted edge dict.
+        - **Batch**: pass `edges` as a list of dicts (each with `from_id`,
+          `to_id`, `relation` + optional `metadata`). Other top-level args
+          are ignored. Returns `{"results": [...]}`. Atomic — fails as a
+          unit if any edge is invalid for its node-type pair. Replaces the
+          deprecated `dt_add_edges` tool.
+
+        Common relation pairs: `part_of` (flow/capability/form/event →
+        module), `implements` (flow → capability), `depends_on`
+        (module/flow → module/flow), `triggers` (flow/event → event/flow),
+        `validates` (form → rule), `enforces` (rule → entity). Call
+        `dt_schema` first if unsure — cheaper than recovering from a
+        `SchemaError`."""
+        if edges is not None:
+            return {"results": _add_edges_batch(conn, edges)}
+        if not from_id or not to_id or not relation:
+            return {
+                "error": (
+                    "Provide either single-edge args (from_id+to_id+relation) "
+                    "or the batch arg (edges=[...])."
+                )
+            }
         return _add_edge(
             conn,
             from_id=from_id,
@@ -439,11 +480,15 @@ def build_server(db_path: str | Path) -> FastMCP:
     @mcp.tool()
     @_instrumented(conn, "dt_add_edges", "batch_create")
     def dt_add_edges(edges: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """USE ME when wiring several edges from the same change (e.g.
-        connecting a new flow to its capability and module at once) —
-        atomic and cheaper than repeated `dt_add_edge`. Each item needs
-        `from_id`, `to_id`, `relation`; optional `metadata`. Fails
-        atomically if any edge is invalid for its node-type pair."""
+        """DEPRECATED — use `dt_add_edge(edges=[...])` instead. Will be
+        removed in the next minor bump. This alias is kept for one release
+        so existing prompts/skills keep working; it still persists every
+        edge atomically and returns the same shape it used to."""
+        warnings.warn(
+            "dt_add_edges is deprecated; use dt_add_edge(edges=[...]).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return _add_edges_batch(conn, edges)
 
     @mcp.tool()

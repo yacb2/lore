@@ -104,8 +104,8 @@ Wait for the user's answer.
    Ask for edits before persisting.
 
 4. Persist in one transaction:
-   - `dt_add_nodes(...)` with every module (repos + inner).
-   - `dt_add_edges(...)` with `part_of` from each inner module to
+   - `dt_add_node(nodes=[...])` with every module (repos + inner).
+   - `dt_add_edge(edges=[...])` with `part_of` from each inner module to
      its parent repo module.
    - All capability/flow nodes and their edges.
    - Every node's `metadata` must include the standard provenance
@@ -120,7 +120,7 @@ the repo boundary. Persist with no repo-level parents.
 ### (c) Manual — either layout
 
 Ask the user to list 3–10 kebab-case names. Persist via
-`dt_add_nodes` batch. No capabilities/flows inferred. Every module
+`dt_add_node(nodes=[...])` batch. No capabilities/flows inferred. Every module
 gets `source="user_stated"`, `confidence="high"`,
 `last_verified_at="<today>"`.
 

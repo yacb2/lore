@@ -29,7 +29,7 @@ estimate), and a per-tool / per-op breakdown.
    - Output: X KB (~Y tokens)
 
    ### By tool
-   - dt_add_nodes: N calls · X KB (~Y tokens)
+   - dt_add_node: N calls · X KB (~Y tokens)
    - dt_audit: N calls · X KB (~Y tokens)
    - ...
 
