@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — `/dt:audit` absorbs `/dt:probe` via optional path argument
+
+Step 5 of the surface-area consolidation. `/dt:audit` now accepts an
+optional `$ARGUMENTS` path:
+
+- No args → Mode A: audit the active project via MCP `dt_audit()`
+  (current behavior, unchanged).
+- `<path>` → Mode B: subprocess `dt audit --db <path>/.dt/graph.db
+  --json` + `dt stats` against an external project's graph, with the
+  rich probe-style summary (graph stats + health + MCP usage).
+
+`/dt:probe` becomes a **deprecated alias** that forwards to Mode B
+and prints a deprecation notice. It will be removed in a future
+release of the consolidation plan.
+
+Rationale: `/dt:probe` exists only because the MCP server cannot be
+re-aimed at a different DB mid-session. The CLI subprocess workaround
+is the same in both commands; one entry point is enough.
+
 ### Changed — `/dt:sync` is now the single entry point for graph alignment
 
 Step 4 of the surface-area consolidation (backlog item

@@ -54,7 +54,7 @@ The plugin bundles:
 - **MCP server** exposing `dt_add_node`, `dt_add_nodes`, `dt_update_node`, `dt_delete_node`, `dt_get_node`, `dt_add_edge`, `dt_add_edges`, `dt_remove_edge`, `dt_query`, `dt_traverse`, `dt_list`, `dt_find_variants`, `dt_audit`, `dt_history`, `dt_stats`, `dt_export_markdown`.
 - **Auto-invoked skill** (`dt-usage`) that tells Claude to read before acting and write on decision, with provenance rules and lifecycle conventions.
 - **Sub-agent `dt-explorer`** (Haiku, read-only) for broad exploration without burning expensive tokens.
-- **Slash commands**: `/dt:sync` (INIT / EXTEND / DIFF, auto-detected), `/dt:init` (permanent alias → INIT), `/dt:audit`, `/dt:show <id>`, `/dt:recent`, `/dt:impact <id>`, `/dt:probe <path>` (audit another project's graph without switching directory). `/dt:bootstrap` is a deprecated alias kept for one release.
+- **Slash commands**: `/dt:sync` (INIT / EXTEND / DIFF, auto-detected), `/dt:init` (permanent alias → INIT), `/dt:audit [<path>]` (active project, or another project's graph at `<path>/.dt/graph.db`), `/dt:show <id>`, `/dt:recent`, `/dt:impact <id>`. `/dt:bootstrap` and `/dt:probe` are deprecated aliases kept for one release.
 
 ## Install (standalone CLI / other MCP hosts)
 
