@@ -49,7 +49,8 @@ dt init          # creates .dt/graph.db in the current project
 |---|---|
 | `plugins/domaintome/.mcp.json` | Declares the `dt` MCP server. Auto-started. |
 | `plugins/domaintome/skills/dt-usage/SKILL.md` | **Auto-invoked.** Read-first, write-on-decision, contradiction-check. |
-| `plugins/domaintome/commands/dt/init.md` | `/dt:init` — bootstrap modules interactively. |
+| `plugins/domaintome/commands/sync.md` | `/dt:sync` — align graph with code (auto-detects INIT / EXTEND / DIFF mode). |
+| `plugins/domaintome/commands/init.md` | `/dt:init` — permanent alias for `/dt:sync` in INIT mode. |
 | `plugins/domaintome/commands/dt/audit.md` | `/dt:audit` — run structural checks. |
 | `plugins/domaintome/commands/dt/show.md` | `/dt:show <id>` — full node detail. |
 | `plugins/domaintome/commands/dt/recent.md` | `/dt:recent` — top 20 by updated_at. |

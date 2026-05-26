@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — `/dt:sync` is now the single entry point for graph alignment
+
+Step 4 of the surface-area consolidation (backlog item
+`dt-consolidate-tools-and-commands`). `/dt:sync` absorbs what used to
+be `/dt:init` + `/dt:bootstrap` + `/dt:sync`, auto-detecting the mode
+from repo state:
+
+- **INIT** — no `.dt/graph.db` or zero modules: interactive seed
+  (layout detection, granularity prompt, auto-scan or manual,
+  mandatory `dt_audit()` verification).
+- **EXTEND** — graph has modules and no git revision passed: broad
+  re-scan with a Sonnet sub-agent, tiered caps by project size.
+- **DIFF** — graph has modules and `$ARGUMENTS` is a git revision
+  (`HEAD~10`, sha, tag): the original sync flow over `git diff` with
+  per-batch confirmation.
+
+`/dt:init` stays as a **permanent alias** that lands in INIT mode —
+external docs, READMEs and muscle memory rely on it. `/dt:bootstrap`
+becomes a **deprecated alias** that lands in EXTEND mode and prints a
+deprecation notice; it will be removed in a future release of the
+consolidation plan.
+
+Migration: most users do nothing. If you used `/dt:bootstrap`, switch
+to `/dt:sync` (no args) — same behavior, one fewer command to
+remember.
+
 ### Deprecated — `dt_find_variants`
 
 Step 3 of the surface-area consolidation. `dt_find_variants` is a

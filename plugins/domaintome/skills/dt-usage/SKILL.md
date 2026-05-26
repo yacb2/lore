@@ -209,7 +209,7 @@ exploration to the cheaper `dt-explorer` sub-agent (Haiku):
 |---|---|
 | Single node lookup, 1-2 tool calls | Stay in caller's model |
 | Scanning >20 nodes, deep traversal, multi-hop audit | `Agent(subagent_type: "dt-explorer", prompt: "<question>")` |
-| Bootstrap / repo scan | Already handled by `/dt:bootstrap` (Sonnet by default; Haiku opt-in via `.dt/config.json → models.exploration`) |
+| Bootstrap / repo scan | Already handled by `/dt:sync` (no args → EXTEND mode; Sonnet by default; Haiku opt-in via `.dt/config.json → models.exploration`). `/dt:bootstrap` is a deprecated alias of the same flow. |
 | Detecting contradictions, choosing relations, modelling new nodes | Caller's model — requires reasoning |
 | Any write (`dt_add_*`, `dt_update_*`, `dt_delete_*`) | **Caller's model only.** Never let a Haiku sub-agent write |
 

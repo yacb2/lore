@@ -44,6 +44,6 @@ estimate), and a per-tool / per-op breakdown.
 
 ## When to use
 
-- After a `/dt:bootstrap` / `/dt:init` to see what it cost.
+- After a `/dt:sync` (INIT or EXTEND mode) to see what the seed/extend pass cost.
 - Periodically to spot unusually hot tools.
 - With `--since <yesterday>` to scope to a session.

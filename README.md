@@ -35,7 +35,7 @@ Bytes-on-the-wire to the model when answering structural questions, with vs. wit
 
 **Maintenance cost** (what Claude pays to keep the graph in sync): a typical "new flow + 3 edges" write costs **~720 B** total. Break-even is <1 query per new feature. Reads dominate writes by orders of magnitude.
 
-Caveats: input-payload only (output answer not measured); does not include the one-time `/dt:bootstrap` cost; ratios are descriptive of the questions tested, not a guarantee for arbitrary questions.
+Caveats: input-payload only (output answer not measured); does not include the one-time `/dt:sync` (INIT/EXTEND) cost; ratios are descriptive of the questions tested, not a guarantee for arbitrary questions.
 
 ## Install (Claude Code plugin — recommended)
 
@@ -47,14 +47,14 @@ Caveats: input-payload only (output answer not measured); does not include the o
 
 The plugin's `.mcp.json` uses `uvx` to fetch the `domaintome` package from PyPI on first run, so the only prerequisite is having [`uv`](https://docs.astral.sh/uv/) installed (`brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`). No separate `pip install` step.
 
-Reload, then from the project you want to model run `/dt:init` (or `/dt:bootstrap` for a guided onboarding that scans the code with Haiku). "Project" can be a single repo *or* a workspace that contains several repos — DomainTome has no opinion, `.dt/graph.db` is created relative to whatever directory you launched Claude Code from.
+Reload, then from the project you want to model run `/dt:sync` — one command, three auto-detected modes: **INIT** (no graph yet, interactive seed), **EXTEND** (graph exists, broad re-scan), **DIFF** (`/dt:sync HEAD~10` to walk only what changed since a git rev). `/dt:init` is a permanent alias that lands in INIT mode. "Project" can be a single repo *or* a workspace that contains several repos — DomainTome has no opinion, `.dt/graph.db` is created relative to whatever directory you launched Claude Code from.
 
 The plugin bundles:
 
 - **MCP server** exposing `dt_add_node`, `dt_add_nodes`, `dt_update_node`, `dt_delete_node`, `dt_get_node`, `dt_add_edge`, `dt_add_edges`, `dt_remove_edge`, `dt_query`, `dt_traverse`, `dt_list`, `dt_find_variants`, `dt_audit`, `dt_history`, `dt_stats`, `dt_export_markdown`.
 - **Auto-invoked skill** (`dt-usage`) that tells Claude to read before acting and write on decision, with provenance rules and lifecycle conventions.
 - **Sub-agent `dt-explorer`** (Haiku, read-only) for broad exploration without burning expensive tokens.
-- **Slash commands**: `/dt:init`, `/dt:bootstrap`, `/dt:audit`, `/dt:show <id>`, `/dt:recent`, `/dt:impact <id>`, `/dt:probe <path>` (audit another project's graph without switching directory).
+- **Slash commands**: `/dt:sync` (INIT / EXTEND / DIFF, auto-detected), `/dt:init` (permanent alias → INIT), `/dt:audit`, `/dt:show <id>`, `/dt:recent`, `/dt:impact <id>`, `/dt:probe <path>` (audit another project's graph without switching directory). `/dt:bootstrap` is a deprecated alias kept for one release.
 
 ## Install (standalone CLI / other MCP hosts)
 
