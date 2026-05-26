@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed — deprecated tools and slash commands from earlier steps
+
+Step 6 of the surface-area consolidation closes the cleanup window
+opened by steps 2-5. Because the entire consolidation lands in one
+released version, the deprecation warnings only ever fired in the
+local development window; users go directly from the previous release
+shape to the consolidated shape in one upgrade.
+
+Removed in this step:
+
+- **MCP tools**: `dt_add_nodes`, `dt_add_edges`, `dt_find_variants`.
+  Use `dt_add_node(nodes=[...])`, `dt_add_edge(edges=[...])`, and
+  `dt_query(text_or_id=<capability_id>, depth=1)` + edge filter
+  respectively.
+- **Slash commands**: `/dt:bootstrap`, `/dt:probe`. Use `/dt:sync`
+  (no args, EXTEND mode) and `/dt:audit <path>` respectively.
+
+`/dt:init` stays as a **permanent alias** of `/dt:sync` (INIT mode) —
+external docs and muscle memory rely on it.
+
+Net surface area after this step:
+
+- MCP tools: 17 → 14 (`dt_overview` + 15 CRUD/read/meta, minus 3 removed).
+- Slash commands: 11 → 9 (`/dt:sync`, `/dt:init`, `/dt:audit`,
+  `/dt:show`, `/dt:recent`, `/dt:impact`, `/dt:reconcile`,
+  `/dt:verify`, `/dt:stats`).
+
 ### Changed — `/dt:audit` absorbs `/dt:probe` via optional path argument
 
 Step 5 of the surface-area consolidation. `/dt:audit` now accepts an

@@ -12,7 +12,6 @@ import os
 import sqlite3
 import sys
 import time
-import warnings
 from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
@@ -38,9 +37,6 @@ from domaintome.graph import (
 )
 from domaintome.graph import (
     delete_node as _delete_node,
-)
-from domaintome.graph import (
-    find_variants as _find_variants,
 )
 from domaintome.graph import (
     get_node as _get_node,
@@ -304,7 +300,7 @@ def build_server(db_path: str | Path) -> FastMCP:
           list of dicts (each with `id`/`type`/`title` and the same optional
           fields). The other top-level args are ignored. Returns
           `{"results": [<shrunken-or-full>...]}`. Atomic — fails as a unit if
-          any entry is invalid. Replaces the deprecated `dt_add_nodes` tool.
+          any entry is invalid.
 
         Type must be one of: module, capability, flow, event, rule, form,
         entity, decision. Write `title`/`body` in the same natural language
@@ -337,24 +333,6 @@ def build_server(db_path: str | Path) -> FastMCP:
             metadata=metadata,
         )
         return _shrink(node, return_mode)
-
-    @mcp.tool()
-    @_instrumented(conn, "dt_add_nodes", "batch_create")
-    def dt_add_nodes(
-        nodes: list[dict[str, Any]],
-        return_mode: str = "summary",
-    ) -> list[dict[str, Any]]:
-        """DEPRECATED — use `dt_add_node(nodes=[...])` instead. Will be
-        removed in the next minor bump. This alias is kept for one release
-        so existing prompts/skills keep working; it still persists every
-        node atomically and returns the same shape it used to."""
-        warnings.warn(
-            "dt_add_nodes is deprecated; use dt_add_node(nodes=[...]).",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        results = _add_nodes_batch(conn, nodes)
-        return [_shrink(n, return_mode) for n in results]
 
     @mcp.tool()
     @_instrumented(conn, "dt_schema", "read")
@@ -451,8 +429,7 @@ def build_server(db_path: str | Path) -> FastMCP:
         - **Batch**: pass `edges` as a list of dicts (each with `from_id`,
           `to_id`, `relation` + optional `metadata`). Other top-level args
           are ignored. Returns `{"results": [...]}`. Atomic — fails as a
-          unit if any edge is invalid for its node-type pair. Replaces the
-          deprecated `dt_add_edges` tool.
+          unit if any edge is invalid for its node-type pair.
 
         Common relation pairs: `part_of` (flow/capability/form/event →
         module), `implements` (flow → capability), `depends_on`
@@ -476,20 +453,6 @@ def build_server(db_path: str | Path) -> FastMCP:
             relation=relation,
             metadata=metadata,
         )
-
-    @mcp.tool()
-    @_instrumented(conn, "dt_add_edges", "batch_create")
-    def dt_add_edges(edges: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """DEPRECATED — use `dt_add_edge(edges=[...])` instead. Will be
-        removed in the next minor bump. This alias is kept for one release
-        so existing prompts/skills keep working; it still persists every
-        edge atomically and returns the same shape it used to."""
-        warnings.warn(
-            "dt_add_edges is deprecated; use dt_add_edge(edges=[...]).",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return _add_edges_batch(conn, edges)
 
     @mcp.tool()
     @_instrumented(conn, "dt_remove_edge", "delete")
@@ -536,27 +499,6 @@ def build_server(db_path: str | Path) -> FastMCP:
             _traverse(conn, from_id, relations=relations, max_depth=max_depth),
             _max_response_bytes(),
         )
-
-    @mcp.tool()
-    @_instrumented(conn, "dt_find_variants", "read")
-    def dt_find_variants(capability_id: str) -> list[dict[str, Any]]:
-        """DEPRECATED — use `dt_query(text_or_id=capability_id, depth=1)`
-        and filter the returned `edges` for `relation == "implements"`
-        with `to_id == capability_id`; the `from_id` of those edges are
-        the flow variants. Will be removed in the next minor bump.
-
-        Kept as an alias for one release. Still returns the same shape
-        (list of flow node dicts) but emits a `DeprecationWarning`. The
-        consolidation removes a specialized read tool that is a 1-line
-        filter over `dt_query`."""
-        warnings.warn(
-            "dt_find_variants is deprecated; use "
-            "dt_query(text_or_id=capability_id, depth=1) and filter edges "
-            "where relation == 'implements' and to_id == capability_id.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return _find_variants(conn, capability_id)
 
     @mcp.tool()
     @_instrumented(conn, "dt_list", "read")

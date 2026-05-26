@@ -76,7 +76,6 @@ async def test_build_server_registers_tools(tmp_path):
         "dt_remove_edge",
         "dt_query",
         "dt_traverse",
-        "dt_find_variants",
         "dt_list",
         "dt_audit",
         "dt_export_markdown",
@@ -86,7 +85,7 @@ async def test_build_server_registers_tools(tmp_path):
 
 @pytest.mark.anyio
 async def test_call_tools_end_to_end(tmp_path):
-    """Drive a realistic sequence: add two nodes, add edge, query, find_variants."""
+    """Drive a realistic sequence: add two nodes, add edge, query the graph."""
     import json
 
     db = tmp_path / "graph.db"
@@ -130,8 +129,14 @@ async def test_call_tools_end_to_end(tmp_path):
     assert got["node"]["id"] == "pay-flow"
     assert any(e["to_id"] == "pay-cap" for e in got["outgoing"])
 
-    variants = await call("dt_find_variants", {"capability_id": "pay-cap"})
-    assert any(v["id"] == "pay-flow" for v in variants)
+    # Replacement for the legacy dt_find_variants: dt_query + edge filter.
+    out = await call("dt_query", {"text_or_id": "pay-cap", "depth": 1})
+    variant_ids = {
+        e["from_id"]
+        for e in out["edges"]
+        if e["relation"] == "implements" and e["to_id"] == "pay-cap"
+    }
+    assert "pay-flow" in variant_ids
 
 
 @pytest.mark.anyio
@@ -328,9 +333,9 @@ async def test_dt_query_marks_truncation(tmp_path, monkeypatch):
 
 # ---------------------------------------------------------------------------
 # Unified batch mode on dt_add_node / dt_add_edge — step 2 of the
-# surface-area consolidation. The plurals (dt_add_nodes, dt_add_edges) are
-# kept as deprecated aliases for one release; the new shape lives on the
-# singulars via optional `nodes` / `edges` params.
+# surface-area consolidation. The new shape lives on the singulars via
+# optional `nodes` / `edges` params. The legacy plurals (dt_add_nodes,
+# dt_add_edges) and dt_find_variants were removed in step 6.
 # ---------------------------------------------------------------------------
 
 
@@ -408,88 +413,6 @@ async def test_dt_add_edge_batch_mode_via_edges_arg(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_dt_add_edges_alias_still_works_and_warns(tmp_path):
-    db = tmp_path / "graph.db"
-    server = build_server(db)
-
-    await _call(
-        server,
-        "dt_add_node",
-        {
-            "nodes": [
-                {"id": "cap-y", "type": "capability", "title": "Y"},
-                {"id": "flow-y", "type": "flow", "title": "FY"},
-            ]
-        },
-    )
-    import warnings as _warnings
-
-    with _warnings.catch_warnings(record=True) as caught:
-        _warnings.simplefilter("always")
-        out = await _call(
-            server,
-            "dt_add_edges",
-            {
-                "edges": [
-                    {
-                        "from_id": "flow-y",
-                        "to_id": "cap-y",
-                        "relation": "implements",
-                    }
-                ]
-            },
-        )
-    assert isinstance(out, list)
-    assert len(out) == 1
-    assert any(
-        issubclass(w.category, DeprecationWarning) and "dt_add_edges" in str(w.message)
-        for w in caught
-    )
-
-
-@pytest.mark.anyio
-async def test_dt_find_variants_alias_still_works_and_warns(tmp_path):
-    db = tmp_path / "graph.db"
-    server = build_server(db)
-
-    await _call(
-        server,
-        "dt_add_node",
-        {
-            "nodes": [
-                {"id": "cap-z", "type": "capability", "title": "Z"},
-                {"id": "flow-z1", "type": "flow", "title": "FZ1"},
-                {"id": "flow-z2", "type": "flow", "title": "FZ2"},
-            ]
-        },
-    )
-    await _call(
-        server,
-        "dt_add_edge",
-        {
-            "edges": [
-                {"from_id": "flow-z1", "to_id": "cap-z", "relation": "implements"},
-                {"from_id": "flow-z2", "to_id": "cap-z", "relation": "implements"},
-            ]
-        },
-    )
-
-    import warnings as _warnings
-
-    with _warnings.catch_warnings(record=True) as caught:
-        _warnings.simplefilter("always")
-        variants = await _call(
-            server, "dt_find_variants", {"capability_id": "cap-z"}
-        )
-    assert {v["id"] for v in variants} == {"flow-z1", "flow-z2"}
-    assert any(
-        issubclass(w.category, DeprecationWarning)
-        and "dt_find_variants" in str(w.message)
-        for w in caught
-    )
-
-
-@pytest.mark.anyio
 async def test_dt_query_replaces_find_variants(tmp_path):
     """The replacement pattern: dt_query(cap_id, depth=1) returns the
     capability and its 1-hop neighbors; filtering edges for
@@ -528,28 +451,3 @@ async def test_dt_query_replaces_find_variants(tmp_path):
     assert variant_ids == {"flow-q1", "flow-q2"}
 
 
-@pytest.mark.anyio
-async def test_dt_add_nodes_alias_still_works_and_warns(tmp_path):
-    db = tmp_path / "graph.db"
-    server = build_server(db)
-
-    import warnings as _warnings
-
-    with _warnings.catch_warnings(record=True) as caught:
-        _warnings.simplefilter("always")
-        out = await _call(
-            server,
-            "dt_add_nodes",
-            {
-                "nodes": [
-                    {"id": "n-1", "type": "module", "title": "N1"},
-                    {"id": "n-2", "type": "module", "title": "N2"},
-                ]
-            },
-        )
-    assert isinstance(out, list)
-    assert {n["id"] for n in out} == {"n-1", "n-2"}
-    assert any(
-        issubclass(w.category, DeprecationWarning) and "dt_add_nodes" in str(w.message)
-        for w in caught
-    )

@@ -37,7 +37,7 @@ a known concept, consult the graph:
 3. `dt_get_node(id, include_edges=true)` — full detail of a hit.
 4. `dt_traverse(from_id, relations, max_depth)` — blast radius.
 
-**"How many ways of doing X?"** — use `dt_query(text_or_id=<capability_id>, depth=1)` and filter the returned `edges` for `relation == "implements"` with `to_id == <capability_id>`; the `from_id` of each matching edge is a flow variant. The legacy `dt_find_variants` tool still works but is deprecated and will be removed next release.
+**"How many ways of doing X?"** — use `dt_query(text_or_id=<capability_id>, depth=1)` and filter the returned `edges` for `relation == "implements"` with `to_id == <capability_id>`; the `from_id` of each matching edge is a flow variant.
 
 If the graph has the answer, cite the node id(s). If it's silent, say so —
 don't fabricate.
@@ -70,7 +70,7 @@ When the conversation produces one of these, persist it:
 | Trigger | Action |
 |---|---|
 | New module / capability / flow named and agreed on | `dt_add_node(...)` |
-| Many related nodes at once (bootstrap, discovery) | `dt_add_node(nodes=[...])` — one atomic transaction (the legacy `dt_add_nodes` alias still works but is deprecated and will be removed next release) |
+| Many related nodes at once (bootstrap, discovery) | `dt_add_node(nodes=[...])` — one atomic transaction |
 | Flow A now supersedes flow B | `dt_add_edge(from=A, to=B, relation="supersedes")`, mark `B.status="superseded"` |
 | New event emitted by a flow | `dt_add_node(type="event")` + `triggers` edge |
 | New rule or validation | `dt_add_node(type="rule")` + `enforces` edge to the entity |
