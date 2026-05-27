@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-05-27
+
+### Changed — `dt-usage` skill description rewritten ("Use when…" framing)
+
+Replaces the three "ALWAYS use…" clauses with a single "Use when…"
+opener and widens the semantic frame to cover two patterns that were
+underserved by v0.5.0 wording:
+
+- **Announcements of recent edits** (e.g. "just edited X — added new
+  logic for partial refunds", "split the monolithic services.py into
+  three files") now match via "or announces a change to … This covers
+  both explicit asks and conversational announcements of edits the
+  user just made."
+- **Capture/record intent** (e.g. "anótalo en algún lado: cambié X",
+  "para que no se me olvide después: …") now match via "Also use when
+  the user wants to capture, note, or record a change for later, even
+  when phrased informally." Description stays English-only; cross-
+  lingual semantic similarity is delegated to the Claude Code matcher
+  rather than enumerating non-English phrases.
+
+Measured baseline (v0.4.0, 55-query panel, claude-sonnet-4-6,
+transcript-scan proxy): recall 36/40 = 90%, FP 1/15 = 7%, with the
+four misses concentrated on the two patterns above. Re-measurement
+post-ship will produce the delta in
+`.context/research/2026-05-26-dt-usage-baseline/run-0004-f1f4/`.
+
+Resolves F1 from the skill-trigger audit
+(`request/2026-05-20-skill-trigger-audit-prd`).
+
+### Removed — overlap with `PostToolUse` hook
+
+Dropped the "ALWAYS use it after editing files that look like business
+logic (views, services, commands, signals, serializers, validators,
+hooks)" clause from the `dt-usage` description. The
+`dt hook-post-tool-use` handler already covers that path
+deterministically: on every `Edit`/`Write`/`MultiEdit`/`NotebookEdit`
+it matches the edited file against `metadata.source_ref` of graph
+nodes (or classifies the diff as business) and emits a targeted
+`additionalContext` nudge pointing at `dt_update_node` /
+`dt_add_node` / `dt_add_edge`. The skill clause was redundant and
+probabilistic where the hook is deterministic. Removing it frees
+~20 words of description budget and eliminates a competing signal
+that contributed to false-positive risk.
+
+Resolves F4 from the same audit.
+
 ## [0.5.0] — 2026-05-27
 
 ### Removed — deprecated tools and slash commands from earlier steps
