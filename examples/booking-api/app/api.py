@@ -4,15 +4,14 @@ from fastapi import FastAPI, HTTPException
 from sqlmodel import Session
 
 from .models import Reservation
-from .services import (
+from .reservation_creation import ReservationConflict, create_reservation
+from .reservation_lifecycle import (
     CancellationNotAllowed,
-    ReservationConflict,
     cancel_by_user,
     confirm_reservation,
-    create_reservation,
-    deactivate_resource,
     force_cancel_by_admin,
 )
+from .resource_management import deactivate_resource
 
 app = FastAPI(title="booking-api")
 

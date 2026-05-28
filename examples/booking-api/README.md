@@ -21,12 +21,14 @@ with `source_ref` provenance.
 
 ```
 app/
-  models.py      Reservation, Resource, ReservationStatus
-  rules.py       can_user_cancel, is_pending_expired, overlaps
-  services.py    create / confirm / cancel_by_user / force_cancel_by_admin / deactivate_resource
-  api.py         FastAPI endpoints
+  models.py                   Reservation, Resource, ReservationStatus
+  rules.py                    can_user_cancel, is_pending_expired, overlaps
+  reservation_creation.py     create_reservation
+  reservation_lifecycle.py    confirm / cancel_by_user / force_cancel_by_admin
+  resource_management.py      deactivate_resource (cascades to reservations)
+  api.py                      FastAPI endpoints
 scripts/
-  expire_pending.py  background expiration job
+  expire_pending.py           background expiration job
 ```
 
 ## Reproduce the A/B yourself
@@ -35,8 +37,9 @@ Measured input-payload size for the question *"how many ways can a Reservation b
 
 ```bash
 # Without DomainTome: bytes the assistant must read
-wc -c app/api.py app/services.py app/rules.py app/models.py scripts/expire_pending.py
-# => 6,213 bytes
+wc -c app/api.py app/reservation_creation.py app/reservation_lifecycle.py \
+      app/resource_management.py app/rules.py app/models.py scripts/expire_pending.py
+# => 6,467 bytes
 
 # With DomainTome: bytes returned by a single query
 dt init                                  # creates .dt/graph.db
@@ -45,7 +48,7 @@ dt query cancel | wc -c
 # => 1,485 bytes
 ```
 
-`scripts/seed_graph.sql` is the source of truth for the demo graph (12 nodes, 15 edges covering 4 cancellation paths, 3 rules, 2 entities). `.dt/` is gitignored so the DB is rebuilt locally.
+`scripts/seed_graph.sql` is the source of truth for the demo graph (14 nodes, 15 edges covering 4 cancellation paths, 3 rules, 2 entities). `.dt/` is gitignored so the DB is rebuilt locally.
 
 ## Generate the demo GIF
 

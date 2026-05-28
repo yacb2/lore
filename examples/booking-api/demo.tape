@@ -18,7 +18,7 @@ Sleep 800ms
 
 Type "# Without DomainTome an assistant would Glob, Grep and Read 5 files." Enter
 Sleep 600ms
-Type "wc -c app/api.py app/services.py app/rules.py app/models.py scripts/expire_pending.py" Sleep 800ms Enter
+Type "wc -c app/api.py app/reservation_creation.py app/reservation_lifecycle.py app/resource_management.py app/rules.py app/models.py scripts/expire_pending.py" Sleep 800ms Enter
 Sleep 2s
 
 Type "# 6.2 KB of code to send to the model -- per session, every time." Sleep 1s Enter

@@ -21,25 +21,25 @@ INSERT INTO nodes (id, type, title, body, status, metadata_json, created_at, upd
 ('cap-cancel-reservation', 'capability', 'Cancel a Reservation',
  'Move a Reservation out of the active set (CONFIRMED or PENDING) into CANCELLED or EXPIRED. Four implementations exist.',
  'active',
- json_object('source','manual','confidence','high','source_ref','app/services.py'),
+ json_object('source','manual','confidence','high','source_ref','app/reservation_lifecycle.py'),
  datetime('now'), datetime('now')),
 
 ('flow-user-cancel', 'flow', 'User cancels own reservation',
  'POST /reservations/{id}/cancel. Gated by can_user_cancel: must be CONFIRMED and at least 2h before starts_at. Sets cancelled_reason=user_request.',
  'active',
- json_object('source','manual','confidence','high','source_ref','app/services.py:42'),
+ json_object('source','manual','confidence','high','source_ref','app/reservation_lifecycle.py:23'),
  datetime('now'), datetime('now')),
 
 ('flow-admin-force-cancel', 'flow', 'Admin force-cancels a reservation',
  'POST /admin/reservations/{id}/cancel?reason=... Bypasses the cancellation window. Sets cancelled_reason=admin:<reason>.',
  'active',
- json_object('source','manual','confidence','high','source_ref','app/services.py:55'),
+ json_object('source','manual','confidence','high','source_ref','app/reservation_lifecycle.py:37'),
  datetime('now'), datetime('now')),
 
 ('flow-resource-deactivation-cascade', 'flow', 'Resource deactivation cascades to active reservations',
  'POST /admin/resources/{id}/deactivate sets is_active=false and cancels every PENDING/CONFIRMED reservation for that resource. Sets cancelled_reason=resource_deactivated.',
  'active',
- json_object('source','manual','confidence','high','source_ref','app/services.py:64'),
+ json_object('source','manual','confidence','high','source_ref','app/resource_management.py:6'),
  datetime('now'), datetime('now')),
 
 ('flow-pending-ttl-expire', 'flow', 'Background job expires stale PENDING reservations',
@@ -65,18 +65,28 @@ INSERT INTO nodes (id, type, title, body, status, metadata_json, created_at, upd
 ('rule-no-overlap', 'rule', 'Resource cannot be double-booked',
  'create_reservation rejects (409) if any existing PENDING/CONFIRMED reservation for the same resource overlaps with the requested window.',
  'active',
- json_object('source','manual','confidence','high','source_ref','app/services.py:18'),
+ json_object('source','manual','confidence','high','source_ref','app/reservation_creation.py:20'),
  datetime('now'), datetime('now'));
 
 -- Modules
 INSERT INTO nodes (id, type, title, body, status, metadata_json, created_at, updated_at) VALUES
-('module-services', 'module', 'app/services.py',
- 'Business-logic layer. All state transitions for Reservation and Resource go through here.',
+('module-reservation-creation', 'module', 'app/reservation_creation.py',
+ 'Reservation creation path. Enforces no-overlap before persisting.',
  'active',
- json_object('source','manual','confidence','high','source_ref','app/services.py'),
+ json_object('source','manual','confidence','high','source_ref','app/reservation_creation.py'),
+ datetime('now'), datetime('now')),
+('module-reservation-lifecycle', 'module', 'app/reservation_lifecycle.py',
+ 'Reservation state transitions: confirm, user-cancel, admin force-cancel.',
+ 'active',
+ json_object('source','manual','confidence','high','source_ref','app/reservation_lifecycle.py'),
+ datetime('now'), datetime('now')),
+('module-resource-management', 'module', 'app/resource_management.py',
+ 'Resource lifecycle: deactivation cascades to active reservations.',
+ 'active',
+ json_object('source','manual','confidence','high','source_ref','app/resource_management.py'),
  datetime('now'), datetime('now')),
 ('module-api', 'module', 'app/api.py',
- 'FastAPI endpoints. Thin layer over services.',
+ 'FastAPI endpoints. Thin layer over the reservation and resource modules.',
  'active',
  json_object('source','manual','confidence','high','source_ref','app/api.py'),
  datetime('now'), datetime('now'));
@@ -97,9 +107,9 @@ INSERT INTO edges (from_id, to_id, relation, metadata_json, created_at) VALUES
 ('flow-resource-deactivation-cascade', 'entity-resource',    'mutates', NULL, datetime('now')),
 ('flow-pending-ttl-expire',            'entity-reservation', 'mutates', NULL, datetime('now')),
 
-('module-services', 'flow-user-cancel',                   'contains', NULL, datetime('now')),
-('module-services', 'flow-admin-force-cancel',            'contains', NULL, datetime('now')),
-('module-services', 'flow-resource-deactivation-cascade', 'contains', NULL, datetime('now')),
-('module-services', 'rule-no-overlap',                    'contains', NULL, datetime('now'));
+('module-reservation-creation',  'rule-no-overlap',                    'contains', NULL, datetime('now')),
+('module-reservation-lifecycle', 'flow-user-cancel',                   'contains', NULL, datetime('now')),
+('module-reservation-lifecycle', 'flow-admin-force-cancel',            'contains', NULL, datetime('now')),
+('module-resource-management',   'flow-resource-deactivation-cascade', 'contains', NULL, datetime('now'));
 
 COMMIT;

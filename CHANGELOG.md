@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-05-28
+
+### Changed — booking-api example: split `services.py` into per-domain modules
+
+`examples/booking-api/app/services.py` is split into `reservation_creation.py`,
+`reservation_lifecycle.py`, and `resource_management.py` to mirror the bounded
+contexts the demo already named. No behavior change in the example app —
+`app/api.py` updates its imports; routes and responses are identical.
+
+The DomainTome seed (`scripts/seed_graph.sql`) is rewritten in lockstep so the
+graph stays faithful to the code: the single `module-services` node is replaced
+by three new modules with `source_ref` pointing at each new file, flow
+`source_ref`s are re-pinned to the correct lines in the new layout, and
+`module-reservation-creation` now contains `rule-no-overlap`. Node count
+12 → 14; edge count unchanged at 15. `README.md` and `demo.tape` are updated
+to reflect the new file layout.
+
+This release contains no changes to the `domaintome` package, MCP server, CLI,
+or the `dt-usage` skill.
+
 ## [0.6.0] — 2026-05-27
 
 ### Changed — `dt-usage` skill description rewritten ("Use when…" framing)
